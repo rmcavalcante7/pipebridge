@@ -1,22 +1,17 @@
 from pipefy.service.file.flows.pipeline.uploadPipelineContext import UploadPipelineContext
 from pipefy.exceptions import ValidationError
 from pipefy.exceptions.utils import getExceptionContext
+from pipefy.service.file.flows.rules import BaseRule
 
 
-class ValidateFieldStep:
+class ValidateFieldRule(BaseRule):
     """
     Validates if the field exists in the card.
 
     :example:
-        >>> callable(ValidateFieldStep.execute)
+        >>> callable(ValidateFieldRule.execute)
         True
     """
-
-    def __str__(self) -> str:
-        return "<ValidateFieldStep>"
-
-    def __repr__(self) -> str:
-        return "<ValidateFieldStep()>"
 
     def execute(self, context: UploadPipelineContext) -> None:
         """
@@ -30,6 +25,14 @@ class ValidateFieldStep:
         class_name, method_name = getExceptionContext(self)
 
         request = context.request
+
+        if not request.card_id:
+            raise ValidationError(
+                message=f"card_id is required for {self.__class__.__name__}",
+                class_name=class_name,
+                method_name=method_name
+            )
+
         card = context.card_service.getCardModel(request.card_id)
 
         if str(request.field_id) not in str(card.fields_map):

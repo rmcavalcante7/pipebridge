@@ -1,9 +1,10 @@
 from pipefy.service.file.flows.pipeline.uploadPipelineContext import UploadPipelineContext
 from pipefy.exceptions import ValidationError
 from pipefy.exceptions.utils import getExceptionContext
+from pipefy.service.file.flows.rules import BaseRule
 
 
-class ValidateFileBytesStep:
+class ValidateFileBytesRule(BaseRule):
     """
     Pipeline step responsible for validating file content.
 
@@ -17,15 +18,9 @@ class ValidateFileBytesStep:
             - field or card validation
 
     :example:
-        >>> callable(ValidateFileBytesStep.execute)
+        >>> callable(ValidateFileBytesRule.execute)
         True
     """
-
-    def __str__(self) -> str:
-        return "<ValidateFileBytesStep>"
-
-    def __repr__(self) -> str:
-        return "<ValidateFileBytesStep()>"
 
     def execute(self, context: UploadPipelineContext) -> None:
         """

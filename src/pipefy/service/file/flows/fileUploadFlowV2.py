@@ -1,15 +1,21 @@
+from typing import List, Optional
+
+from pipefy.models.file.fileUploadRequest import FileUploadRequest
 from pipefy.service.file.flows.baseFileUploadFlow import BaseFileUploadFlow
-from pipefy.service.file.flows.pipeline.steps.validateCardPhaseStep import ValidateCardPhaseStep
-from pipefy.service.file.flows.pipeline.steps.validateFieldStep import ValidateFieldStep
 from pipefy.service.file.flows.pipeline.uploadPipelineContext import UploadPipelineContext
 
-from pipefy.service.file.flows.pipeline.steps.validateFileBytesStep import ValidateFileBytesStep
 from pipefy.service.file.flows.pipeline.steps.uploadStep import UploadStep
 from pipefy.service.file.flows.pipeline.steps.attachStep import AttachStep
 from pipefy.service.file.flows.pipeline.steps.mergeAttachmentsStep import MergeAttachmentsStep
 
 from pipefy.integrations.file.fileUploadResult import FileUploadResult
 from pipefy.exceptions.utils import getExceptionContext
+from pipefy.service.file.flows.rules import BaseRule
+
+from pipefy.service.file.flows.rules.ruleEngine import RuleEngine
+from pipefy.service.file.flows.rules.validateFileBytesRule import ValidateFileBytesRule
+from pipefy.service.file.flows.rules.validateFieldRule import ValidateFieldRule
+from pipefy.service.file.flows.rules.validateCardPhaseRule import ValidateCardPhaseRule
 
 
 class FileUploadFlowV2(BaseFileUploadFlow):
@@ -31,16 +37,19 @@ class FileUploadFlowV2(BaseFileUploadFlow):
         self._ctx = context
 
         self._pipeline = [
-            ValidateFileBytesStep(),
-            ValidateFieldStep(),
-            ValidateCardPhaseStep(),
             UploadStep(),
             MergeAttachmentsStep(),
             AttachStep()
         ]
+        self._rules: List[BaseRule] = [
+            ValidateFileBytesRule(),
+            ValidateFieldRule(),
+            ValidateCardPhaseRule()
+        ]
 
-    def execute(self, request):
-        class_name, method_name = getExceptionContext(self)
+        self._rule_engine: Optional[RuleEngine] = None
+
+    def execute(self, request: FileUploadRequest, extra_rules: Optional[list[BaseRule]] = None):
 
         presigned = self._createPresignedUrl(
             request.file_name,
@@ -64,6 +73,13 @@ class FileUploadFlowV2(BaseFileUploadFlow):
             download_url=download_url,
             files=[file_path]
         )
+
+        if extra_rules:
+            self._rules.extend(extra_rules)
+
+        self._rule_engine = RuleEngine(rules=self._rules)
+
+        self._rule_engine.execute(context)
 
         for step in self._pipeline:
             print(f"Executing step: {step}")

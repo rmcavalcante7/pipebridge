@@ -14,6 +14,7 @@ from pipefy.models.file.fileUploadRequest import FileUploadRequest
 from pipefy.models.file.fileDownloadRequest import FileDownloadRequest
 
 
+
 # ============================================================
 # Setup
 # ============================================================
@@ -68,7 +69,7 @@ def testUpload(api: Pipefy, card_id: str, field_id: str, org_id: str, expected_p
     print("\n=== TEST: files.upload ===")
 
     request = FileUploadRequest(
-        file_name="4-Novo_test_file.txt",
+        file_name="7-Novo_test_file.txt",
         file_bytes=b"hello from pipfey sdk",
         card_id=card_id,
         field_id=field_id,
@@ -98,6 +99,139 @@ def testUpload(api: Pipefy, card_id: str, field_id: str, org_id: str, expected_p
 
     print("Upload result:", result)
     print("✔ upload OK")
+
+
+
+def uploadFileBlockBaseRule(
+    api: Pipefy,
+    card_id: str,
+    field_id: str,
+    phase_id: str,
+    org_id: str,
+    expected_phase_id: Optional[str] = None
+) -> None:
+    """
+    Test custom rule blocking upload.
+
+    This test validates that:
+        - Custom rules are executed
+        - Rule can block execution
+        - Upload is prevented when rule fails
+
+    :param api: Pipefy
+    :param card_id: str
+    :param field_id: str
+    :param org_id: str
+    :param expected_phase_id: Optional[str]
+
+    :return: None
+
+    :example:
+        >>> callable(uploadFileBlockBaseRule)
+        True
+    """
+    from pipefy.service.file.flows.rules.baseRule import BaseRule
+
+    class BlockTxtRule(BaseRule):
+        """
+        Blocks .txt file uploads.
+        """
+
+        def execute(self, context) -> None:
+            """
+            Executes rule validation.
+
+            :param context: UploadPipelineContext
+
+            :raises Exception:
+                When file is .txt
+            """
+            if context.request.file_name.endswith(".txt"):
+                raise Exception("TXT files are not allowed")
+
+        def __str__(self) -> str:
+            return "<BlockTxtRule>"
+
+        def __repr__(self) -> str:
+            return "<BlockTxtRule()>"
+
+    print("\n=== TEST: files.upload (custom rule blocking) ===")
+
+    request = FileUploadRequest(
+        file_name="7-Novo_test_file.txt",  # 🔥 deve falhar
+        file_bytes=b"hello from pipfey sdk",
+        card_id=card_id,
+        field_id=field_id,
+        organization_id=org_id,
+        replace_files=True,
+        expected_phase_id=phase_id
+    )
+
+    try:
+        api.files.uploadFile(
+            request=request,
+            extra_rules=[BlockTxtRule()]
+        )
+
+        # --------------------------------------------------------
+        # FAIL: deveria ter bloqueado
+        # --------------------------------------------------------
+        assert False, "Upload should have been blocked by BlockTxtRule"
+
+    except Exception as exc:
+        # --------------------------------------------------------
+        # PASS: erro esperado
+        # --------------------------------------------------------
+        assert "TXT files are not allowed" in str(exc), \
+            f"Unexpected error: {exc}"
+
+        print("✔ custom rule executed and blocked upload")
+        print("Error:", exc)
+
+def uploadFileAllowCustomRule(
+    api: Pipefy,
+    card_id: str,
+    field_id: str,
+    phase_id: str,
+    org_id: str,
+
+) -> None:
+    """
+    Test custom rule allowing upload.
+
+    :example:
+        >>> callable(uploadFileAllowCustomRule)
+        True
+    """
+    from pipefy.service.file.flows.rules.baseRule import BaseRule
+
+    class AllowAllRule(BaseRule):
+        def execute(self, context) -> None:
+            pass
+
+    print("\n=== TEST: files.upload (custom rule allow) ===")
+
+    request = FileUploadRequest(
+        file_name="valid_file.png",
+        file_bytes=b"valid content",
+        card_id=card_id,
+        field_id=field_id,
+        organization_id=org_id,
+        expected_phase_id=phase_id,
+        replace_files=True
+    )
+
+    result = api.files.uploadFile(
+        request=request,
+        extra_rules=[AllowAllRule()]
+    )
+
+    from pipefy.integrations.file.fileUploadResult import FileUploadResult
+
+    assert isinstance(result, FileUploadResult)
+    assert result.success is True
+
+    print("✔ upload allowed with custom rule")
 
 
 def testDownload(api: Pipefy, card_id: str, field_id: str) -> None:
@@ -166,7 +300,11 @@ if __name__ == "__main__":
         # ========================================================
         # CORE FLOW
         # ========================================================
-        testUpload(api, CARD_ID, FIELD_ID, ORGANIZATION_ID, expected_phase_id=PHASE_ID)
+        testUpload(api, card_id=CARD_ID, field_id=FIELD_ID, org_id=ORGANIZATION_ID, expected_phase_id=PHASE_ID)
+
+        uploadFileBlockBaseRule(api, card_id=CARD_ID, field_id=FIELD_ID, org_id=ORGANIZATION_ID, phase_id=PHASE_ID)
+        uploadFileAllowCustomRule(api, card_id=CARD_ID, field_id=FIELD_ID, org_id=ORGANIZATION_ID, phase_id=PHASE_ID)
+
         testDownload(api, CARD_ID, FIELD_ID)
 
         print("\n🎯 ALL FILE TESTS PASSED")
