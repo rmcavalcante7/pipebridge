@@ -1,0 +1,35 @@
+[build-system]
+requires = [ "setuptools>=65.0", "wheel", "setuptools_scm[toml]>=8.0",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipefy"
+dynamic = [ "version",]
+description = "Secure and extensible credential management SDK for Python applications."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "infra-core-sdk",
+]
+[[project.authors]]
+name = "Rafael Cavalcante"
+
+[project.optional-dependencies]
+dev = [ "pytest>=8.0.0", "pytest-cov>=4.0.0", "black>=24.0.0", "mypy>=1.0.0", "build", "twine",]
+
+[project.urls]
+Homepage = "https://github.com/rmcavalcante7/"
+Repository = "https://github.com/rmcavalcante7/infra-core-sdk"
+
+
+[tool.black]
+line-length = 88
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = [ "tests",]
+
+[tool.setuptools.packages.find]
+where = [ "src",]

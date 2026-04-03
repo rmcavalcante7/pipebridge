@@ -1,0 +1,222 @@
+🚀 PROMPT DE CONTINUAÇÃO — PIPEFY SDK (ESTADO ATUAL REAL)
+🧠 CONTEXTO GERAL
+
+Estamos desenvolvendo um SDK Python para integração com Pipefy com os seguintes princípios:
+
+Arquitetura limpa (separação clara de camadas)
+Baixo acoplamento
+Alta coesão
+Tipagem forte
+Docstrings padrão Sphinx (obrigatório)
+Exceptions padronizadas
+Código orientado à API real (não documentação oficial)
+🏗️ ARQUITETURA DO SDK
+pipefy/
+├── client/         → HTTP / GraphQL client
+├── service/        → regras de negócio (Card, Phase, Pipe, File)
+├── integrations/   → integrações externas (File, etc.)
+├── models/         → modelos tipados
+├── facade/         → interface pública
+├── exceptions/     → sistema centralizado
+✅ ESTADO ATUAL CONSOLIDADO
+🔥 1. CardService — ESTÁVEL
+
+✔ getCardModel consolidado
+✔ fields_map (O(1))
+✔ validação consistente
+✔ exceptions padrão
+
+👉 NÃO mexer mais sem necessidade
+
+🔥 2. Models (Card + Field)
+
+✔ acesso O(1) via fields_map
+✔ abstração correta da API
+✔ base para validações futuras
+
+🔥 3. FileIntegration — FINALIZADO
+
+✔ upload (PUT presigned URL)
+✔ download (GET)
+✔ extractFilePath funcionando
+
+⚠️ PROBLEMA IDENTIFICADO:
+
+ORG_ID está hardcoded ❌
+
+👉 Isso DEVE ser resolvido
+
+🔥 4. FileService — FUNCIONAL (UPLOAD + DOWNLOAD)
+
+✔ createPresignedUrl
+✔ upload real funcionando
+✔ attach funcionando via updateCardField
+✔ append vs replace funcionando
+✔ leitura via CardModel (fields_map)
+
+✔ downloadAllAttachments funcionando
+✔ extração de nome de arquivo funcionando
+
+🚨 DESCOBERTA CRÍTICA (CONFIRMADA)
+❗ PIPEFY NO NOSSO AMBIENTE NÃO SEGUE O GRAPHQL "OFICIAL"
+❌ NÃO FUNCIONA:
+updateCardAttachmentFieldValue
+UUID de campo
+✅ FUNCIONA:
+updateCardField
+🔥 COMPORTAMENTO REAL
+new_value = LISTA COMPLETA de arquivos
+📌 IMPLICAÇÃO
+Operação	Como funciona
+replace	envia nova lista
+append	busca atuais + novo
+remove	envia lista sem item
+⚠️ PADRÃO DEFINIDO (OBRIGATÓRIO)
+CardService → fonte da verdade
+FileService → usa CardModel (fields_map)
+NUNCA usar GraphQL direto em integration/service
+🚨 PONTOS PENDENTES (CRÍTICOS)
+🧪 TESTES AINDA NÃO EXECUTADOS
+
+Precisamos validar:
+
+ testUploadValidation(api)
+ testDownloadValidation(api)
+
+👉 Esses testes vão validar:
+
+validação de inputs
+cenários de erro
+comportamento edge-case
+❗ PROBLEMA TÉCNICO
+extractFilePath
+ORG_ID = "c74580a4-..."
+
+👉 Isso é um BUG arquitetural
+
+🎯 SOLUÇÃO FUTURA
+obter org_id dinamicamente
+via:
+PipeService
+contexto
+ou retorno do presigned
+🚨 PRÓXIMA ETAPA OBRIGATÓRIA
+
+Após resolver testes e ORG_ID:
+
+🔥 FAZER REVISÃO COMPLETA EM integrations/file
+
+Checklist:
+
+consistência de docstrings
+tratamento de erros
+normalização de paths
+evitar duplicidade
+validar encoding
+validar edge cases (lista vazia, null, etc.)
+🚀 ESTRATÉGIA PARA UPDATE DE CAMPOS (PRÓXIMA GRANDE ENTREGA)
+🧠 DESCOBERTA IMPORTANTE
+
+A API do Pipefy:
+
+não é consistente
+não é confiável via documentação
+❗ NOSSO PADRÃO DEFINIDO
+
+🔥 O SDK seguirá comportamento REAL observado
+
+🎯 ESTRATÉGIA DEFINITIVA
+DISPATCH POR TIPO DE CAMPO
+field_type → handler → mutation
+EXEMPLO
+{
+    "text": _updateTextField,
+    "number": _updateNumberField,
+    "select": _updateSelectField,
+    "attachment": _updateAttachmentField,
+}
+🔥 REGRAS
+NÃO assumir mutation genérica
+NÃO confiar na documentação
+SEMPRE validar comportamento real
+SEMPRE usar models (CardModel, FieldModel)
+📌 IMPORTANTE
+
+Mesmo que hoje updateCardField funcione:
+
+👉 devemos manter abertura para:
+
+fallback por tipo
+🧠 ESTADO MENTAL ATUAL (CRÍTICO)
+
+Neste momento, o projeto NÃO está mais em fase de construção inicial.
+
+Estamos em:
+
+FASE DE CONSOLIDAÇÃO ARQUITETURAL
+🟢 O QUE JÁ ESTÁ RESOLVIDO
+
+✔ arquitetura base
+✔ models
+✔ services principais
+✔ integração de arquivos funcional
+✔ entendimento da API real
+
+🟡 O QUE ESTAMOS FAZENDO
+
+✔ eliminando inconsistências
+✔ validando comportamento real
+✔ padronizando SDK
+
+🔥 SENSAÇÃO ATUAL
+
+Estamos saindo de:
+
+"SDK que funciona"
+
+para:
+
+"SDK confiável, previsível e profissional"
+
+🧠 MINDSET CORRETO AGORA
+NÃO acelerar
+NÃO improvisar
+NÃO assumir comportamento da API
+
+👉 Tudo deve ser:
+
+validado → abstraído → padronizado
+🎯 RESUMO FINAL
+
+✔ Upload funcional
+✔ Download funcional
+✔ Arquitetura limpa
+✔ Uso correto de CardModel
+✔ Sem GraphQL inconsistente
+
+❗ AINDA FALTA
+validar testes de upload/download
+remover hardcode de org_id
+revisão completa do módulo file
+implementar estratégia de update (dispatcher)
+🚀 COMO RETOMAR
+
+Quando continuar:
+
+👉 "finalizar validações do FileService + remover ORG_ID hardcoded"
+
+ou
+
+👉 "iniciar dispatcher de update de campos baseado em tipo"
+
+🏁 OBJETIVO FINAL
+
+🔥 SDK alinhado com comportamento real do Pipefy
+🔥 sem inconsistências
+🔥 sem hacks
+🔥 altamente previsível
+🔥 pronto para produção
+
+Se quiser, no próximo passo a gente já pode:
+
+👉 começar o dispatcher de verdade (nível final)
