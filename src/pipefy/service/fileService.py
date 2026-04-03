@@ -4,22 +4,48 @@
 from pathlib import Path
 from typing import List
 
+from urllib.parse import urlparse, unquote
+
 from pipefy.client.httpClient import PipefyHttpClient
 from pipefy.service.cardService import CardService
 from pipefy.exceptions import ValidationError, getExceptionContext
-from pipefy.integrations.file.fileService import FileService as IntegrationFileService
+
 from pipefy.integrations.file.fileUploadResult import FileUploadResult
+from pipefy.models.file.fileUploadRequest import FileUploadRequest
+from pipefy.models.file.fileDownloadRequest import FileDownloadRequest
+
+from pipefy.service.file.flows.fileUploadFlowV2 import FileUploadFlowV2
+from pipefy.service.file.fileServiceContext import FileServiceContext
+from pipefy.integrations.file.fileIntegration import FileIntegration
 
 
 class FileService:
     """
-    Service responsible for file operations in Pipefy.
+    Application service responsible for file operations in Pipefy.
 
-    This class acts as an orchestration layer between the application
-    services and the file integration layer.
+    This class acts as the orchestration layer between external interfaces
+    (e.g., Facades) and internal domain flows.
 
-    It delegates file upload and download operations to the integration
-    FileService while preserving backward compatibility.
+    ARCHITECTURAL ROLE:
+        - Receives structured request objects (DTO pattern)
+        - Delegates execution to domain flows
+        - Manages dependencies and execution context
+
+    DESIGN PRINCIPLES:
+        - No business logic
+        - No parameter explosion
+        - No data transformation logic
+        - Strict delegation to flows
+
+    API DESIGN:
+        This service enforces a request-based API:
+            - FileUploadRequest
+            - FileDownloadRequest
+
+        This ensures:
+            - Consistency across operations
+            - Extensibility without breaking signatures
+            - Strong typing and validation
 
     :param client: PipefyHttpClient = HTTP client instance
     :param card_service: CardService = Card service instance
@@ -31,11 +57,14 @@ class FileService:
         >>> from pipefy.client.httpClient import PipefyHttpClient
         >>> from pipefy.service.cardService import CardService
         >>> client = PipefyHttpClient("token", "https://api.pipefy.com/graphql")
-        >>> card_service = CardService(client)
-        >>> service = FileService(client, card_service)
+        >>> service = FileService(client, CardService(client))
         >>> isinstance(service, FileService)
         True
     """
+
+    # ============================================================
+    # Constructor
+    # ============================================================
 
     def __init__(
         self,
@@ -45,86 +74,80 @@ class FileService:
         """
         Initializes FileService.
 
-        :param client: PipefyHttpClient = HTTP client instance
-        :param card_service: CardService = Card service instance
+        :param client: PipefyHttpClient
+        :param card_service: CardService
 
         :raises ValidationError:
             When dependencies are invalid
+
+        :example:
+            >>> callable(FileService)
+            True
         """
         class_name, method_name = getExceptionContext(self)
 
         if client is None:
             raise ValidationError(
-                message="client must not be None",
-                class_name=class_name,
-                method_name=method_name
+                "client must not be None",
+                class_name,
+                method_name
             )
 
         if card_service is None:
             raise ValidationError(
-                message="card_service must not be None",
-                class_name=class_name,
-                method_name=method_name
+                "card_service must not be None",
+                class_name,
+                method_name
             )
 
         self._client = client
         self._card_service = card_service
-        self._integration_service = IntegrationFileService(client, card_service)
+        self._file_integration = FileIntegration()
+
+        self._context = FileServiceContext(
+            client=self._client,
+            card_service=self._card_service,
+            file_integration=self._file_integration
+        )
+
+        self._upload_flow_v2 = FileUploadFlowV2(self._context)
 
     # ============================================================
     # Upload
     # ============================================================
 
-    def uploadFile(
-        self,
-        file_name: str,
-        file_bytes: bytes,
-        card_id: str,
-        field_id: str,
-        organization_id: int,
-        replace_files: bool = False
-    ) -> FileUploadResult:
+    def uploadFile(self, request: FileUploadRequest) -> FileUploadResult:
         """
-        Upload a file and attach it to a card field.
+        Uploads a file and attaches it to a Pipefy card field.
 
-        This method delegates the upload workflow to the integration layer
-        and returns only the success status for backward compatibility.
+        This method delegates execution to FileUploadFlowV2, which
+        implements a pipeline-based upload mechanism.
 
-        :param file_name: str = File name
-        :param file_bytes: bytes = File content
-        :param card_id: str = Card identifier
-        :param field_id: str = Field identifier
-        :param organization_id: int = Organization ID
-        :param replace_files: bool = If True, replaces all existing attachments.
-                              If False, appends to existing attachments.
+        :param request: FileUploadRequest = Upload request object
 
-        :return: FileUploadResult = Upload result with status and details
+        :return: FileUploadResult = Upload result metadata
 
         :raises ValidationError:
-            When input parameters are invalid
-        :raises UnexpectedResponseError:
-            When API response structure is invalid
+            When request is invalid
         :raises RequestError:
             When upload fails
+        :raises UnexpectedResponseError:
+            When API response is invalid
 
         :example:
-            >>> from pipefy.client.httpClient import PipefyHttpClient
-            >>> from pipefy.service.cardService import CardService
-            >>> client = PipefyHttpClient("token", "https://api.pipefy.com/graphql")
-            >>> service = FileService(client, CardService(client))
-            >>> callable(service.uploadFile)
+            >>> callable(FileService.uploadFile)
             True
         """
-        result = self._integration_service.uploadFile(
-            file_name=file_name,
-            file_bytes=file_bytes,
-            card_id=card_id,
-            field_id=field_id,
-            organization_id=organization_id,
-            replace_files=replace_files
-        )
+        class_name, method_name = getExceptionContext(self)
 
-        return result
+        if not isinstance(request, FileUploadRequest):
+            raise ValidationError(
+                "request must be a FileUploadRequest instance",
+                class_name,
+                method_name
+            )
+
+        return self._upload_flow_v2.execute(request)
 
     # ============================================================
     # Download
@@ -132,54 +155,75 @@ class FileService:
 
     def downloadAllAttachments(
         self,
-        card_id: str,
-        field_id: str,
-        output_dir: str
+        request: FileDownloadRequest
     ) -> List[Path]:
         """
-        Download all attachments from a card and save them locally.
+        Downloads all attachments from a Pipefy card field.
 
-        This method delegates the download operation to the integration
-        layer and handles local file persistence.
+        This method retrieves file URLs from the specified card field,
+        downloads each file, and saves them locally.
 
-        :param card_id: str = Card identifier
-        :param output_dir: str = Output directory path
+        :param request: FileDownloadRequest = Download request object
 
         :return: list[Path] = List of saved file paths
 
         :raises ValidationError:
-            When input parameters are invalid
+            When request is invalid
         :raises RequestError:
             When download fails
 
         :example:
-            >>> from pipefy.client.httpClient import PipefyHttpClient
-            >>> from pipefy.service.cardService import CardService
-            >>> client = PipefyHttpClient("token", "https://api.pipefy.com/graphql")
-            >>> service = FileService(client, CardService(client))
-            >>> callable(service.downloadAllAttachments)
+            >>> callable(FileService.downloadAllAttachments)
             True
         """
         class_name, method_name = getExceptionContext(self)
 
-        if not output_dir or not isinstance(output_dir, str):
+        if not isinstance(request, FileDownloadRequest):
             raise ValidationError(
-                message="output_dir must be a valid string",
-                class_name=class_name,
-                method_name=method_name
+                "request must be a FileDownloadRequest instance",
+                class_name,
+                method_name
             )
 
-        files = self._integration_service.downloadAllAttachments(card_id=card_id, field_id=field_id)
+        card = self._card_service.getCardModel(request.card_id)
 
-        output_path = Path(output_dir)
+        if request.field_id not in card.fields_map:
+            return []
+
+        raw_value = card.fields_map[request.field_id].value
+
+        if not raw_value:
+            return []
+
+        import json
+        attachments = json.loads(raw_value)
+
+        output_path = Path(request.output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
         saved_files: List[Path] = []
 
-        for file_name, content in files.items():
-            file_path = output_path / file_name
+        for url in attachments:
+            parsed_url = urlparse(url)
 
+            # remove query params e pega só o path
+            file_name = Path(parsed_url.path).name
+
+            # decodifica caracteres especiais
+            file_name = unquote(file_name)
+
+            content = self._file_integration.download(url)
+
+            file_path = output_path / file_name
             file_path.write_bytes(content)
+
             saved_files.append(file_path)
 
         return saved_files
+
+
+# ============================================================
+# MAIN TEST
+# ============================================================
+if __name__ == "__main__":
+    print("FileService (enterprise request-based API) ready")

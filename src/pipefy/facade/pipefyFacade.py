@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, List
 
 from pipefy.client.httpClient import PipefyHttpClient
 from pipefy.exceptions import getExceptionContext
+from pipefy.models.file.fileUploadRequest import FileUploadRequest
 from pipefy.models.pipe import Pipe
 from pipefy.service.cardService import CardService
 from pipefy.service.pipeService import PipeService
@@ -15,6 +16,7 @@ from pipefy.models.card import Card
 from pipefy.models.phase import Phase
 from pipefy.exceptions import PipefyInitializationError
 from pipefy.integrations.file.fileUploadResult import FileUploadResult
+from pipefy.models.file.fileDownloadRequest import FileDownloadRequest
 
 
 # ============================================================
@@ -507,119 +509,74 @@ class PipesStructuredFacade:
 # ============================================================
 
 class FilesFacade:
+    """
+    Facade for file operations in Pipefy.
+
+    This class provides a unified and simplified interface for file
+    upload and download operations.
+
+    DESIGN PRINCIPLES:
+        - Uses request objects (no primitive parameter explosion)
+        - Delegates all logic to FileService
+        - Maintains a stable API boundary
+
+    :param service: FileService
+
+    :example:
+        >>> callable(FilesFacade.uploadFile)
+        True
+    """
 
     def __init__(self, service: FileService) -> None:
         """
-        Initialize FilesFacade.
+        Initializes FilesFacade.
 
-        :param service: FileService = File service instance
-
-        :example:
-            >>> client = PipefyHttpClient("token", "https://org.pipefy.com/queries")
-            >>> card_service = CardService(client)
-            >>> service = FileService(client, card_service)
-            >>> facade = FilesFacade(service)
-            >>> isinstance(facade, FilesFacade)
-            True
+        :param service: FileService
         """
-        self._service: FileService = service
+        self._service = service
 
     # ============================================================
     # Upload
     # ============================================================
 
-    def upload(
-        self,
-        file_name: str,
-        file_bytes: bytes,
-        card_id: str,
-        field_id: str,
-        organization_id: int,
-        replace_files: bool = False
-    ) -> FileUploadResult:
+    def uploadFile(self, request: FileUploadRequest) -> FileUploadResult:
         """
-        Upload a file and attach it to a card field.
+        Uploads a file using a structured request object.
 
-        This method abstracts the full upload workflow:
-        - Presigned URL generation
-        - File upload
-        - Card field update
+        :param request: FileUploadRequest
 
-        :param file_name: str = File name
-        :param file_bytes: bytes = File content
-        :param card_id: str = Card identifier
-        :param field_id: str = Field identifier
-        :param organization_id: int = Organization ID
-        :param replace_files: bool = If True, replaces all existing attachments.
-                              If False, appends to existing attachments.
-
-        :return: FileUploadResult = Upload result with status and details
-
-        :raises ValidationError:
-            When input parameters are invalid
-        :raises UnexpectedResponseError:
-            When API response structure is invalid
-        :raises RequestError:
-            When upload or request execution fails
+        :return: FileUploadResult
 
         :example:
-            >>> client = PipefyHttpClient("token", "https://org.pipefy.com/queries")
-            >>> card_service = CardService(client)
-            >>> service = FileService(client, card_service)
-            >>> facade = FilesFacade(service)
-            >>> callable(facade.upload)
+            >>> callable(FilesFacade.uploadFile)
             True
         """
-        return self._service.uploadFile(
-            file_name=file_name,
-            file_bytes=file_bytes,
-            card_id=card_id,
-            field_id=field_id,
-            organization_id=organization_id,
-            replace_files=replace_files
-        )
+        return self._service.uploadFile(request)
 
     # ============================================================
     # Download
     # ============================================================
 
-    def download(
+    def downloadAllAttachments(
         self,
-        card_id: str,
-        field_id: str,
-        output_dir: str
+        request: FileDownloadRequest
     ) -> List[Path]:
         """
-        Download all attachments from a card.
+        Downloads all attachments from a card field.
 
-        :param card_id: str = Card identifier
-        :param output_dir: str = Output directory path
+        This method delegates execution to FileService using a
+        structured request object.
 
-        :return: list[Path] = Downloaded file paths
+        :param request: FileDownloadRequest
 
-        :raises ValidationError:
-            When input parameters are invalid
-        :raises UnexpectedResponseError:
-            When response structure is invalid
-        :raises RequestError:
-            When download fails
+        :return: list[Path] = List of saved file paths
 
         :example:
-            >>> from pipefy import PipefyHttpClient
-            >>> from pipefy import CardService
-            >>> from pipefy import FileService
-            >>> client = PipefyHttpClient("token", "https://org.pipefy.com/queries")
-            >>> card_service = CardService(client)
-            >>> service = FileService(client, card_service)
-            >>> facade = FilesFacade(service)
-            >>> callable(facade.download)
+            >>> callable(FilesFacade.downloadAllAttachments)
             True
         """
-        return self._service.downloadAllAttachments(
-            card_id=card_id,
-            field_id=field_id,
-            output_dir=output_dir
-        )
+        return self._service.downloadAllAttachments(request)
+
 
 
 # ============================================================

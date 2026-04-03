@@ -35,7 +35,8 @@ class FileUploadResult:
         self,
         file_path: list[str],
         download_url: Optional[str],
-        success: bool
+        success: bool,
+        expected_phase_id: Optional[str] = None
     ) -> None:
         """
         Initializes FileUploadResult.
@@ -43,6 +44,7 @@ class FileUploadResult:
         :param file_path: list[str] = List of uploaded file paths
         :param download_url: Optional[str] = Public download URL
         :param success: bool = Upload success flag
+        :param expected_phase_id: Optional[str] = Expected phase ID for validation (if applicable)
 
         :example:
             >>> result = FileUploadResult(["path"], None, True)
@@ -52,6 +54,7 @@ class FileUploadResult:
         self.file_path: list[str] = file_path
         self.download_url: Optional[str] = download_url
         self.success: bool = success
+        self.expected_phase_id: Optional[str] = expected_phase_id
 
     # ============================================================
     # Representation Methods

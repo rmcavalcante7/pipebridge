@@ -1,26 +1,52 @@
 # ============================================================
 # Dependencies
 # ============================================================
-import json
 
 import requests
+import re
+
+from typing import Optional
 
 from pipefy.exceptions import RequestError, ValidationError
 from pipefy.exceptions.utils import getExceptionContext
 
 
+# ============================================================
+# FileIntegration
+# ============================================================
 class FileIntegration:
     """
-    Handles low-level file operations with external storage.
+    Handles low-level file operations and file path normalization.
 
-    This class is responsible for direct HTTP interactions with storage
-    services (e.g., S3), including:
+    This class is responsible for:
 
-    - Uploading files using presigned URLs
-    - Downloading files from URLs
-    - Extracting file paths from URLs
+    - Performing HTTP operations with external storage (e.g., S3)
+    - Parsing and normalizing file URLs and paths
+    - Handling inconsistencies in Pipefy file representations
+    - Converting file references into Pipefy-compatible formats
 
-    This class does NOT contain business logic related to Pipefy.
+    IMPORTANT:
+        This class contains NO business logic related to Pipefy entities.
+        It strictly handles infrastructure and data transformation concerns.
+
+    DESIGN DECISION:
+        Due to inconsistencies in Pipefy API responses, this class maintains
+        an internal transient state (`_last_org_id`) used as a fallback when
+        file paths are returned without organization context.
+
+    STATE MANAGEMENT WARNING:
+        This class is NOT thread-safe due to internal mutable state.
+
+        It is REQUIRED that each execution flow (e.g., FileUploadFlow)
+        uses its own instance of FileIntegration.
+
+        Sharing the same instance across concurrent operations may result
+        in incorrect file path normalization due to stale `_last_org_id`.
+
+    SAFE USAGE PATTERN:
+        - Instantiate once per flow execution
+        - Avoid global/shared instances
+        - Optionally call `resetContext()` between operations
 
     :example:
         >>> integration = FileIntegration()
@@ -28,8 +54,44 @@ class FileIntegration:
         True
     """
 
+    def __init__(self) -> None:
+        """
+        Initializes FileIntegration.
+
+        This class maintains an internal fallback state for organization_id
+        to handle inconsistent API responses.
+
+        :example:
+            >>> integration = FileIntegration()
+            >>> integration is not None
+            True
+        """
+        self._last_org_id: Optional[str] = None
+
     # ============================================================
-    # Public Methods
+    # Context Management
+    # ============================================================
+
+    def resetContext(self) -> None:
+        """
+        Resets internal state.
+
+        This method clears the stored organization_id used as fallback.
+
+        It should be used when:
+            - Reusing the same instance across operations
+            - Ensuring no state leakage between executions
+
+        :return: None
+
+        :example:
+            >>> integration = FileIntegration()
+            >>> integration.resetContext()
+        """
+        self._last_org_id = None
+
+    # ============================================================
+    # HTTP METHODS
     # ============================================================
 
     def upload(
@@ -49,6 +111,7 @@ class FileIntegration:
 
         :raises ValidationError:
             When input parameters are invalid
+
         :raises RequestError:
             When HTTP request fails or returns invalid status
 
@@ -59,9 +122,6 @@ class FileIntegration:
         """
         class_name, method_name = getExceptionContext(self)
 
-        # --------------------------------------------------------
-        # Input validation
-        # --------------------------------------------------------
         if not url or not isinstance(url, str):
             raise ValidationError(
                 message="url must be a non-empty string",
@@ -118,6 +178,7 @@ class FileIntegration:
 
         :raises ValidationError:
             When input parameters are invalid
+
         :raises RequestError:
             When HTTP request fails or returns invalid status
 
@@ -128,9 +189,6 @@ class FileIntegration:
         """
         class_name, method_name = getExceptionContext(self)
 
-        # --------------------------------------------------------
-        # Input validation
-        # --------------------------------------------------------
         if not url or not isinstance(url, str):
             raise ValidationError(
                 message="url must be a non-empty string",
@@ -167,7 +225,15 @@ class FileIntegration:
                 method_name=method_name
             ) from exc
 
-    def extractFilePath(self, upload_url: str) -> str:
+    # ============================================================
+    # Path Utilities
+    # ============================================================
+
+    def extractFilePath(
+        self,
+        upload_url: str,
+        org_id: Optional[str] = None
+    ) -> str:
         """
         Normalizes file path to Pipefy required format.
 
@@ -176,29 +242,44 @@ class FileIntegration:
 
             orgs/{organization_id}/uploads/{uuid}/{filename}
 
-        Supported inputs:
-            - Full URLs (with domain and query params)
-            - Signed URLs (with query parameters)
-            - Relative paths (already normalized)
+        BEHAVIOR:
+            - Removes query parameters
+            - Extracts path component
+            - Captures organization_id when available
+            - Uses explicit org_id if provided
+            - Falls back to internal state when necessary
+
+        PRIORITY ORDER:
+            1. Explicit org_id parameter
+            2. org_id extracted from URL
+            3. Internal fallback (_last_org_id)
+
+        IMPORTANT:
+            Pipefy may return inconsistent formats:
+                - With orgs/{id}/...
+                - Without orgs/ (only uploads/...)
+
+            This method guarantees consistent output.
 
         :param upload_url: str = Presigned upload or download URL
+        :param org_id: Optional[str] = Explicit organization_id override
 
         :return: str = Normalized relative file path
 
         :raises ValidationError:
             When upload_url is invalid
+
         :raises RequestError:
-            When normalization fails
+            When normalization fails or organization_id cannot be resolved
 
         :example:
             >>> integration = FileIntegration()
-            >>> path = integration.extractFilePath("https://host/storage/v1/signed/orgs/x/uploads/file.txt?token=abc")
-            >>> "uploads/" in path
-            True
+            >>> integration.extractFilePath(
+            ...     "https://host/orgs/x/uploads/file.txt"
+            ... )
+            'orgs/x/uploads/file.txt'
         """
         class_name, method_name = getExceptionContext(self)
-
-        ORG_ID = "c74580a4-6f84-48c1-b432-836eaed711b2"
 
         if not upload_url or not isinstance(upload_url, str):
             raise ValidationError(
@@ -210,14 +291,66 @@ class FileIntegration:
         try:
             clean_path = upload_url.split("?")[0]
 
+            # ----------------------------------------------------
+            # CASE 1: explicit org_id provided
+            # ----------------------------------------------------
+            if org_id:
+                if "uploads/" not in clean_path:
+                    raise RequestError(
+                        message="Cannot normalize path without uploads/ segment",
+                        class_name=class_name,
+                        method_name=method_name
+                    )
+
+                relative = "uploads/" + clean_path.split("uploads/")[-1]
+                return f"orgs/{org_id}/{relative}"
+
+            # ----------------------------------------------------
+            # CASE 2: contains orgs/
+            # ----------------------------------------------------
             if "orgs/" in clean_path:
+                match = re.search(r"orgs/([^/]+)/", clean_path)
+
+                if not match:
+                    raise RequestError(
+                        message="Failed to extract organization_id from path",
+                        class_name=class_name,
+                        method_name=method_name
+                    )
+
+                extracted_org_id = match.group(1)
+                self._last_org_id = extracted_org_id
+
                 return "orgs/" + clean_path.split("orgs/")[-1]
 
+            # ----------------------------------------------------
+            # CASE 3: only uploads/
+            # ----------------------------------------------------
             if "uploads/" in clean_path:
-                uuid_path = "uploads/" + clean_path.split("uploads/")[-1]
-                return f"orgs/{ORG_ID}/{uuid_path}"
+                if not self._last_org_id:
+                    raise RequestError(
+                        message="organization_id not available for path normalization",
+                        class_name=class_name,
+                        method_name=method_name
+                    )
 
-            return clean_path.split(".com/")[-1]
+                relative = "uploads/" + clean_path.split("uploads/")[-1]
+                return f"orgs/{self._last_org_id}/{relative}"
+
+            # ----------------------------------------------------
+            # CASE 4: fallback
+            # ----------------------------------------------------
+            if ".com/" in clean_path:
+                return clean_path.split(".com/")[-1]
+
+            raise RequestError(
+                message="Unsupported file path format",
+                class_name=class_name,
+                method_name=method_name
+            )
+
+        except (ValidationError, RequestError):
+            raise
 
         except Exception as exc:
             raise RequestError(
@@ -226,72 +359,26 @@ class FileIntegration:
                 method_name=method_name
             ) from exc
 
-    def extractFilePathbk(self, upload_url: str) -> str:
-        """
-        Extracts the relative file path from a presigned upload URL.
-
-        This method performs the following transformations:
-            1. Removes query parameters (?token, etc.)
-            2. Removes domain portion if present
-            3. Removes storage prefix (e.g., 'storage/v1/signed/')
-            4. Returns a relative path compatible with Pipefy API
-
-        Example transformation:
-            https://host/storage/v1/signed/uploads/abc/file.txt?token=123
-            → uploads/abc/file.txt
-
-        :param upload_url: str = Presigned upload URL
-
-        :return: str = Relative file path (e.g., uploads/...)
-
-        :raises ValidationError:
-            When upload_url is invalid
-        :raises RequestError:
-            When parsing fails
-
-        :example:
-            >>> integration = FileIntegration()
-            >>> integration.extractFilePath("https://host/storage/v1/signed/uploads/file.txt?token=abc")
-            'uploads/file.txt'
-        """
-        class_name, method_name = getExceptionContext(self)
-
-        if not upload_url or not isinstance(upload_url, str):
-            raise ValidationError(
-                message="upload_url must be a non-empty string",
-                class_name=class_name,
-                method_name=method_name
-            )
-
-        try:
-            clean_url = upload_url.split("?")[0]
-
-            relative_path = clean_url.split(".com/")[-1]
-
-            if "storage/v1/signed/" in relative_path:
-                relative_path = relative_path.split("storage/v1/signed/")[-1]
-
-            return relative_path
-
-        except Exception as exc:
-            raise RequestError(
-                message=(
-                    f"Class: {self.__class__.__name__}\n"
-                    f"Method: {method_name}\n"
-                    f"Failed to process upload URL: {str(exc)}"
-                ),
-                class_name=class_name,
-                method_name=method_name
-            ) from exc
-
 
 # ============================================================
 # MAIN TEST
 # ============================================================
-
 if __name__ == "__main__":
     """
-    Simple execution test.
+    Simple execution test demonstrating behavior.
     """
     integration = FileIntegration()
-    print("FileIntegration loaded successfully.")
+
+    url = (
+        "https://pipefy-prd-us-east-1.s3.amazonaws.com/"
+        "orgs/c74580a4-6f84-48c1-b432-836eaed711b2/"
+        "uploads/uuid/file.txt?x=1"
+    )
+
+    print(integration.extractFilePath(url))
+
+    # fallback test
+    print(integration.extractFilePath("uploads/uuid/file.txt"))
+
+    # explicit override test
+    print(integration.extractFilePath("uploads/uuid/file.txt", org_id="custom-org"))

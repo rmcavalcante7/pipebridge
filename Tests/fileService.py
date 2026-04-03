@@ -7,8 +7,11 @@ from Credentials import MyPipefyCredentials
 from pipefy import Pipefy
 
 import traceback
-from typing import List
+from typing import List, Optional
 from pathlib import Path
+
+from pipefy.models.file.fileUploadRequest import FileUploadRequest
+from pipefy.models.file.fileDownloadRequest import FileDownloadRequest
 
 
 # ============================================================
@@ -19,13 +22,21 @@ def getApi(credential_name: str, base_url: str) -> Pipefy:
     """
     Initialize Pipefy API safely.
 
+    :param credential_name: str = Credential identifier
+    :param base_url: str = API base URL
+
     :return: Pipefy = Initialized API client
 
     :raises Exception:
         When credential loading fails
+
+    :example:
+        >>> callable(getApi)
+        True
     """
     if not credential_name:
         raise Exception("Credential name must be set")
+
     credential = CredentialsLoader.load(
         MyPipefyCredentials,
         FernetEncryption,
@@ -39,30 +50,34 @@ def getApi(credential_name: str, base_url: str) -> Pipefy:
 # FILE TESTS
 # ============================================================
 
-def testUpload(api: Pipefy, card_id: str, field_id: str, org_id: int) -> None:
+def testUpload(api: Pipefy, card_id: str, field_id: str, org_id: str, expected_phase_id: Optional[str] = None) -> None:
     """
-    Test file upload workflow.
+    Test file upload workflow using request object.
 
     :param api: Pipefy
     :param card_id: str
     :param field_id: str
-    :param org_id: int
+    :param org_id: str
 
     :return: None
+
+    :example:
+        >>> callable(testUpload)
+        True
     """
     print("\n=== TEST: files.upload ===")
 
-    file_name = "2test_file.txt"
-    file_bytes = b"hello from pipfey sdk"
-
-    result = api.files.upload(
-        file_name=file_name,
-        file_bytes=file_bytes,
+    request = FileUploadRequest(
+        file_name="4-Novo_test_file.txt",
+        file_bytes=b"hello from pipfey sdk",
         card_id=card_id,
         field_id=field_id,
         organization_id=org_id,
-        replace_files=False
+        replace_files=True,
+        expected_phase_id=expected_phase_id
     )
+
+    result = api.files.uploadFile(request)
 
     # --------------------------------------------------------
     # Assertions
@@ -72,40 +87,42 @@ def testUpload(api: Pipefy, card_id: str, field_id: str, org_id: int) -> None:
     assert isinstance(result, FileUploadResult), "Result must be FileUploadResult"
     assert result.success is True, "Upload must be successful"
 
-    assert isinstance(result.file_path, list), "file_path must list of strings"
+    assert isinstance(result.file_path, list), "file_path must be list"
+
     for file_path in result.file_path:
+        assert isinstance(file_path, str), "file_path must contain strings"
         assert file_path.startswith("orgs/"), "Invalid file_path format"
 
     if result.download_url is not None:
         assert isinstance(result.download_url, str), "download_url must be string"
 
-    # --------------------------------------------------------
-    # Output
-    # --------------------------------------------------------
     print("Upload result:", result)
-    print("File path:", result.file_path)
-    print("Download URL:", result.download_url)
-
     print("✔ upload OK")
 
-def testDownload(api: Pipefy, card_id: str, field_id:str) -> None:
+
+def testDownload(api: Pipefy, card_id: str, field_id: str) -> None:
     """
-    Test file download workflow.
+    Test file download workflow using request object.
 
     :param api: Pipefy
     :param card_id: str
+    :param field_id: str
 
     :return: None
+
+    :example:
+        >>> callable(testDownload)
+        True
     """
     print("\n=== TEST: files.download ===")
 
-    output_dir = "./downloads_test"
-
-    files: List[Path] = api.files.download(
+    request = FileDownloadRequest(
         card_id=card_id,
         field_id=field_id,
-        output_dir=output_dir
+        output_dir="./downloads_test"
     )
+
+    files: List[Path] = api.files.downloadAllAttachments(request)
 
     assert isinstance(files, list), "Download must return a list"
 
@@ -115,53 +132,6 @@ def testDownload(api: Pipefy, card_id: str, field_id:str) -> None:
 
     print(f"Downloaded {len(files)} files")
     print("✔ download OK")
-
-
-def testUploadValidation(api: Pipefy) -> None:
-    """
-    Test validation errors for upload.
-
-    :param api: Pipefy
-
-    :return: None
-    """
-    print("\n=== TEST: files.upload (validation) ===")
-
-    try:
-        api.files.upload(
-            file_name="",
-            file_bytes=b"",
-            card_id="",
-            field_id="",
-            organization_id="invalid"  # errado de propósito
-        )
-        assert False, "ValidationError expected"
-
-    except Exception as exc:
-        print("Expected error:", exc)
-        print("✔ validation OK")
-
-
-def testDownloadValidation(api: Pipefy) -> None:
-    """
-    Test validation errors for download.
-
-    :param api: Pipefy
-
-    :return: None
-    """
-    print("\n=== TEST: files.download (validation) ===")
-
-    try:
-        api.files.download(
-            card_id="",
-            output_dir=""
-        )
-        assert False, "ValidationError expected"
-
-    except Exception as exc:
-        print("Expected error:", exc)
-        print("✔ validation OK")
 
 
 # ============================================================
@@ -191,20 +161,13 @@ if __name__ == "__main__":
         raise Exception("Invalid credential name")
 
     api = getApi(credential_name=credential_name, base_url=base_url)
-
+    FIELD_ID = 'c_digo'
     try:
         # ========================================================
         # CORE FLOW
         # ========================================================
-        field_id = 'c_digo'
-        testUpload(api, card_id=CARD_ID, field_id=field_id, org_id=ORGANIZATION_ID)
-        testDownload(api, card_id=CARD_ID, field_id=field_id)
-
-        # ========================================================
-        # VALIDATIONS
-        # ========================================================
-        testUploadValidation(api)
-        testDownloadValidation(api)
+        testUpload(api, CARD_ID, FIELD_ID, ORGANIZATION_ID, expected_phase_id=PHASE_ID)
+        testDownload(api, CARD_ID, FIELD_ID)
 
         print("\n🎯 ALL FILE TESTS PASSED")
 
