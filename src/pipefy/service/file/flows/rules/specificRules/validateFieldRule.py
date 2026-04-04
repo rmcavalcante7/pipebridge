@@ -1,7 +1,7 @@
 from pipefy.service.file.flows.pipeline.uploadPipelineContext import UploadPipelineContext
 from pipefy.exceptions import ValidationError
 from pipefy.exceptions.utils import getExceptionContext
-from pipefy.service.file.flows.rules import BaseRule
+from pipefy.service.file.flows.rules.baseRule import BaseRule
 
 
 class ValidateFieldRule(BaseRule):
@@ -12,6 +12,8 @@ class ValidateFieldRule(BaseRule):
         >>> callable(ValidateFieldRule.execute)
         True
     """
+
+    priority = 20
 
     def execute(self, context: UploadPipelineContext) -> None:
         """

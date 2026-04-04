@@ -36,8 +36,12 @@ class RuleEngine:
         Initializes RuleEngine.
 
         :param rules: list[BaseRule]
+        :attribute priority: int = Execution priority (lower runs first)
         """
-        self._rules = rules or []
+        self._rules = sorted(
+            rules or [],
+            key=lambda rule: rule.priority
+        )
 
     def execute(self, context: UploadPipelineContext) -> None:
         """

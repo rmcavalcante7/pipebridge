@@ -7,6 +7,7 @@ from pipefy import CardService
 from pipefy.models.file.fileUploadRequest import FileUploadRequest
 from pipefy.integrations.file.fileIntegration import FileIntegration
 from pipefy.client.httpClient import PipefyHttpClient
+from pipefy.service.file.flows.config.uploadConfig import UploadConfig
 
 
 # ============================================================
@@ -46,13 +47,15 @@ class UploadPipelineContext:
         client: PipefyHttpClient,
         integration: FileIntegration,
         card_service: CardService,
-        upload_url: str,
+        config: UploadConfig,
+        upload_url: str = None,
         download_url: Optional[str] = None,
         files: Optional[List[str]] = None
     ) -> None:
         self.request = request
         self.client = client
         self.card_service = card_service
+        self.config = config
         self.integration = integration
         self.upload_url = upload_url
         self.download_url = download_url

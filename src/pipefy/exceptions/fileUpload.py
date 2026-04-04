@@ -12,10 +12,10 @@ class FileUploadError(PipefyError):
     pass
 
 
-class FileAttachError(Exception):
+class FileAttachError(PipefyError):
     """Raised when attaching file to card fails."""
     pass
 
-class FileValidationError(Exception):
+class FileValidationError(PipefyError):
     """Raised when file validation fails."""
     pass

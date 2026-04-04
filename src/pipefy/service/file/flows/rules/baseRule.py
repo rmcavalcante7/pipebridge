@@ -17,14 +17,19 @@ class BaseRule(ABC):
         - Enable extensibility
         - Support custom user-defined rules
 
-    CONTRACT:
-        - Must implement `execute`
-        - Must raise exception when validation fails
+    RULE PRIORITY:
+        Each rule defines its execution priority.
+
+        Lower values → executed first
+
+        :attribute priority: int = Execution priority (lower runs first)
 
     :example:
         >>> callable(BaseRule.execute)
         True
     """
+
+    priority: int = 100 # default priority
 
     def __str__(self) -> str:
         """
@@ -32,7 +37,7 @@ class BaseRule(ABC):
 
         :return: str
         """
-        return f"<{self.__class__.__name__}>"
+        return f"<{self.__class__.__name__} priority={self.priority}>"
 
     def __repr__(self) -> str:
         """
@@ -40,14 +45,15 @@ class BaseRule(ABC):
 
         :return: str
         """
-        return f"<{self.__class__.__name__}()>"
-    
+        return f"<{self.__class__.__name__}() priority={self.priority}>"
+
     @abstractmethod
     def execute(self, context: UploadPipelineContext) -> None:
         """
         Executes rule validation.
 
         :param context: UploadPipelineContext = Shared execution context
+        :attribute priority: int = Execution priority (lower runs first)
 
         :return: None
 

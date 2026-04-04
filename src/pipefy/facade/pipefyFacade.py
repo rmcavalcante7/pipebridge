@@ -9,7 +9,8 @@ from pipefy.exceptions import getExceptionContext
 from pipefy.models.file.fileUploadRequest import FileUploadRequest
 from pipefy.models.pipe import Pipe
 from pipefy.service.cardService import CardService
-from pipefy.service.file.flows.rules import BaseRule
+from pipefy.service.file.flows.config.uploadConfig import UploadConfig
+from pipefy.service.file.flows.rules.baseRule import BaseRule
 from pipefy.service.pipeService import PipeService
 from pipefy.service.phaseService import PhaseService
 from pipefy.service.fileService import FileService
@@ -540,13 +541,16 @@ class FilesFacade:
     # Upload
     # ============================================================
 
-    def uploadFile(self, request: FileUploadRequest, extra_rules: Optional[list[BaseRule]] = None) -> FileUploadResult:
+    def uploadFile(self, request: FileUploadRequest,
+                   extra_rules: Optional[list[BaseRule]] = None,
+                   config: Optional[UploadConfig] = None,) -> FileUploadResult:
         """
         Uploads a file using a structured request object.
 
         :param request: FileUploadRequest
         :param extra_rules: Optional[list[BaseRule]] = Set of custom rules constructed by te user.
             The rules will be applied before the upload flow.
+        :param config: Optional[UploadConfig] = Configuration for upload process
 
         :return: FileUploadResult
 
@@ -554,7 +558,7 @@ class FilesFacade:
             >>> callable(FilesFacade.uploadFile)
             True
         """
-        return self._service.uploadFile(request=request, extra_rules=extra_rules)
+        return self._service.uploadFile(request=request, extra_rules=extra_rules, config=config)
 
     # ============================================================
     # Download

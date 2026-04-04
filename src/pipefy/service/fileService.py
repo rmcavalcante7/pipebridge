@@ -13,11 +13,12 @@ from pipefy.exceptions import ValidationError, getExceptionContext
 from pipefy.integrations.file.fileUploadResult import FileUploadResult
 from pipefy.models.file.fileUploadRequest import FileUploadRequest
 from pipefy.models.file.fileDownloadRequest import FileDownloadRequest
+from pipefy.service.file.flows.config.uploadConfig import UploadConfig
 
 from pipefy.service.file.flows.fileUploadFlowV2 import FileUploadFlowV2
 from pipefy.service.file.fileServiceContext import FileServiceContext
 from pipefy.integrations.file.fileIntegration import FileIntegration
-from pipefy.service.file.flows.rules import BaseRule
+from pipefy.service.file.flows.rules.baseRule import BaseRule
 
 
 class FileService:
@@ -117,7 +118,9 @@ class FileService:
     # Upload
     # ============================================================
 
-    def uploadFile(self, request: FileUploadRequest, extra_rules: Optional[list[BaseRule]] = None) -> FileUploadResult:
+    def uploadFile(self, request: FileUploadRequest,
+                   extra_rules: Optional[list[BaseRule]] = None,
+                   config: Optional[UploadConfig] = None,) -> FileUploadResult:
         """
         Uploads a file and attaches it to a Pipefy card field.
 
@@ -126,6 +129,7 @@ class FileService:
 
         :param request: FileUploadRequest = Upload request object
         :param extra_rules Set of custom rules constructed by te user. The rules will be applied before the upload flow.
+        :param config: Optional[UploadConfig] = Configuration for upload process
 
         :return: FileUploadResult = Upload result metadata
 
@@ -149,7 +153,7 @@ class FileService:
                 method_name
             )
 
-        return self._upload_flow_v2.execute(request=request, extra_rules=extra_rules)
+        return self._upload_flow_v2.execute(request=request, extra_rules=extra_rules, config=config)
 
     # ============================================================
     # Download

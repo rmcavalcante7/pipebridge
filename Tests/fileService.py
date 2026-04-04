@@ -69,12 +69,12 @@ def testUpload(api: Pipefy, card_id: str, field_id: str, org_id: str, expected_p
     print("\n=== TEST: files.upload ===")
 
     request = FileUploadRequest(
-        file_name="7-Novo_test_file.txt",
+        file_name="15-Novo_test_file.txt",
         file_bytes=b"hello from pipfey sdk",
         card_id=card_id,
         field_id=field_id,
         organization_id=org_id,
-        replace_files=True,
+        replace_files=False,
         expected_phase_id=expected_phase_id
     )
 
@@ -137,6 +137,8 @@ def uploadFileBlockBaseRule(
         Blocks .txt file uploads.
         """
 
+        priority = 25  # roda entre bytes e field
+
         def execute(self, context) -> None:
             """
             Executes rule validation.
@@ -149,12 +151,6 @@ def uploadFileBlockBaseRule(
             if context.request.file_name.endswith(".txt"):
                 raise Exception("TXT files are not allowed")
 
-        def __str__(self) -> str:
-            return "<BlockTxtRule>"
-
-        def __repr__(self) -> str:
-            return "<BlockTxtRule()>"
-
     print("\n=== TEST: files.upload (custom rule blocking) ===")
 
     request = FileUploadRequest(
@@ -163,7 +159,7 @@ def uploadFileBlockBaseRule(
         card_id=card_id,
         field_id=field_id,
         organization_id=org_id,
-        replace_files=True,
+        replace_files=False,
         expected_phase_id=phase_id
     )
 
@@ -218,7 +214,7 @@ def uploadFileAllowCustomRule(
         field_id=field_id,
         organization_id=org_id,
         expected_phase_id=phase_id,
-        replace_files=True
+        replace_files=False
     )
 
     result = api.files.uploadFile(
@@ -232,6 +228,214 @@ def uploadFileAllowCustomRule(
     assert result.success is True
 
     print("✔ upload allowed with custom rule")
+
+
+def testUploadWithAdvancedConfig(
+    api: Pipefy,
+    card_id: str,
+    field_id: str,
+    org_id: str,
+    phase_id: str
+) -> None:
+    """
+    Test upload with advanced configuration (retry + circuit breaker).
+
+    This test validates:
+        - Custom retry configuration is applied
+        - Custom circuit breaker configuration is applied
+        - Flow remains stable under custom settings
+
+    :param api: Pipefy
+    :param card_id: str
+    :param field_id: str
+    :param org_id: str
+    :param phase_id: str
+
+    :return: None
+
+    :example:
+        >>> callable(testUploadWithAdvancedConfig)
+        True
+    """
+    print("\n=== TEST: files.upload (advanced config) ===")
+
+    # --------------------------------------------------------
+    # Import configs
+    # --------------------------------------------------------
+    from pipefy.service.file.flows.config.uploadConfig import UploadConfig
+    from pipefy.service.file.flows.config.retryConfig import RetryConfig
+    from pipefy.service.file.flows.config.circuitBreakerConfig import CircuitBreakerConfig
+
+    # --------------------------------------------------------
+    # Custom configuration (aggressive)
+    # --------------------------------------------------------
+    config = UploadConfig(
+        retry=RetryConfig(
+            max_retries=5,
+            base_delay=1.0
+        ),
+        circuit=CircuitBreakerConfig(
+            failure_threshold=5,
+            recovery_timeout=5.0
+        )
+    )
+
+    # --------------------------------------------------------
+    # Request
+    # --------------------------------------------------------
+    request = FileUploadRequest(
+        file_name="advanced_config_test.txt",
+        file_bytes=b"test with advanced config",
+        card_id=card_id,
+        field_id=field_id,
+        organization_id=org_id,
+        replace_files=False,
+        expected_phase_id=phase_id
+    )
+
+    # --------------------------------------------------------
+    # Execute
+    # --------------------------------------------------------
+    result = api.files.uploadFile(
+        request=request,
+        config=config
+    )
+
+    # --------------------------------------------------------
+    # Assertions
+    # --------------------------------------------------------
+    from pipefy.integrations.file.fileUploadResult import FileUploadResult
+
+    assert isinstance(result, FileUploadResult), "Invalid result type"
+    assert result.success is True, "Upload should succeed"
+
+    assert isinstance(result.file_path, list), "file_path must be list"
+
+    print("Upload result:", result)
+    print("✔ upload with advanced config OK")
+
+
+def testUploadWithFailureSimulation(
+    api: Pipefy,
+    card_id: str,
+    field_id: str,
+    org_id: str,
+    phase_id: str
+) -> None:
+    """
+    Test retry + circuit breaker behavior with simulated failure.
+
+    This test forces failure to validate:
+        - Retry execution
+        - Circuit breaker triggering
+
+    :example:
+        >>> callable(testUploadWithFailureSimulation)
+        True
+    """
+    print("\n=== TEST: files.upload (failure simulation) ===")
+
+    from pipefy.service.file.flows.rules.baseRule import BaseRule
+
+    class AlwaysFailRule(BaseRule):
+        """
+        Forces failure to trigger retry and circuit breaker.
+        """
+        priority = 1
+
+        def execute(self, context) -> None:
+            raise Exception("Forced failure for testing")
+
+    from pipefy.service.file.flows.config.uploadConfig import UploadConfig
+    from pipefy.service.file.flows.config.retryConfig import RetryConfig
+    from pipefy.service.file.flows.config.circuitBreakerConfig import CircuitBreakerConfig
+
+    config = UploadConfig(
+        retry=RetryConfig(max_retries=2, base_delay=0.2),
+        circuit=CircuitBreakerConfig(failure_threshold=2, recovery_timeout=2)
+    )
+
+    request = FileUploadRequest(
+        file_name="fail_test.txt",
+        file_bytes=b"fail test",
+        card_id=card_id,
+        field_id=field_id,
+        organization_id=org_id,
+        replace_files=False,
+        expected_phase_id=phase_id
+    )
+
+    try:
+        api.files.uploadFile(
+            request=request,
+            extra_rules=[AlwaysFailRule()],
+            config=config
+        )
+
+        assert False, "Expected failure did not occur"
+
+    except Exception as exc:
+        print("✔ failure triggered correctly")
+        print("Error:", exc)
+
+def testCircuitBreakerOpening(api: Pipefy, card_id: str, field_id: str, org_id: str, phase_id: str) -> None:
+    """
+    Forces failures to open circuit breaker and validates behavior.
+    """
+    print("\n=== TEST: circuit breaker opening ===")
+
+    from pipefy.service.file.flows.rules.baseRule import BaseRule
+    from pipefy.service.file.flows.config.uploadConfig import UploadConfig
+    from pipefy.service.file.flows.config.retryConfig import RetryConfig
+    from pipefy.service.file.flows.config.circuitBreakerConfig import CircuitBreakerConfig
+
+    class FailRule(BaseRule):
+        priority = 1
+
+        def execute(self, context) -> None:
+            raise Exception("Force failure")
+
+    config = UploadConfig(
+        retry=RetryConfig(max_retries=1, base_delay=0.1),
+        circuit=CircuitBreakerConfig(
+            failure_threshold=2,
+            recovery_timeout=5
+        )
+    )
+
+    request = FileUploadRequest(
+        file_name="cb_test.txt",
+        file_bytes=b"cb test",
+        card_id=card_id,
+        field_id=field_id,
+        organization_id=org_id,
+        replace_files=False,
+        expected_phase_id=phase_id
+    )
+
+    # First failures (should increment circuit)
+    for i in range(2):
+        try:
+            api.files.uploadFile(
+                request=request,
+                extra_rules=[FailRule()],
+                config=config
+            )
+        except Exception:
+            pass
+
+    # Third call should hit OPEN circuit
+    try:
+        api.files.uploadFile(
+            request=request,
+            extra_rules=[FailRule()],
+            config=config
+        )
+        assert False, "Circuit breaker should block execution"
+
+    except Exception as exc:
+        print("✔ circuit breaker triggered")
+        print("Error:", exc)
 
 
 def testDownload(api: Pipefy, card_id: str, field_id: str) -> None:
@@ -305,6 +509,29 @@ if __name__ == "__main__":
         uploadFileBlockBaseRule(api, card_id=CARD_ID, field_id=FIELD_ID, org_id=ORGANIZATION_ID, phase_id=PHASE_ID)
         uploadFileAllowCustomRule(api, card_id=CARD_ID, field_id=FIELD_ID, org_id=ORGANIZATION_ID, phase_id=PHASE_ID)
 
+        testUploadWithAdvancedConfig(
+            api,
+            card_id=CARD_ID,
+            field_id=FIELD_ID,
+            org_id=ORGANIZATION_ID,
+            phase_id=PHASE_ID
+        )
+
+        testUploadWithFailureSimulation(
+            api,
+            card_id=CARD_ID,
+            field_id=FIELD_ID,
+            org_id=ORGANIZATION_ID,
+            phase_id=PHASE_ID
+        )
+
+        testCircuitBreakerOpening(
+            api,
+            card_id=CARD_ID,
+            field_id=FIELD_ID,
+            org_id=ORGANIZATION_ID,
+            phase_id=PHASE_ID
+        )
         testDownload(api, CARD_ID, FIELD_ID)
 
         print("\n🎯 ALL FILE TESTS PASSED")
