@@ -39,15 +39,13 @@ jobs:
         shell: bash
         run: |
           {
-            echo 'body<<EOF'
-            echo 'Automated release generated from git tag.'
-            echo
-            echo 'Artifacts:'
-            ls dist
-            echo
-            echo 'Recent commits:'
+            printf '%s\n' 'body<<EOF'
+            printf '%s\n\n' 'Automated release generated from git tag.'
+            printf '%s\n' 'Artifacts:'
+            find dist -maxdepth 1 -type f -printf '%f\n'
+            printf '\n%s\n' 'Recent commits:'
             git log --pretty=format:'- %s' -n 20
-            echo 'EOF'
+            printf '\n%s\n' 'EOF'
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
