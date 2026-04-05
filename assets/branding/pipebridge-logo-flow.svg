@@ -1,0 +1,38 @@
+<svg width="960" height="240" viewBox="0 0 960 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="flowA" x1="28" y1="42" x2="224" y2="192" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B7285"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="flowText" x1="264" y1="60" x2="764" y2="182" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="240" rx="28" fill="#F8FAFC"/>
+
+  <g transform="translate(24 28)">
+    <rect x="10" y="26" width="54" height="54" rx="16" fill="url(#flowA)"/>
+    <rect x="144" y="26" width="54" height="54" rx="16" fill="url(#flowA)"/>
+    <rect x="78" y="116" width="54" height="54" rx="16" fill="#0F172A"/>
+    <circle cx="182" cy="144" r="28" fill="#E0F2FE" stroke="#1D4ED8" stroke-width="10"/>
+
+    <path d="M64 53H120C137 53 144 60 144 77" stroke="#94A3B8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M171 80V106C171 124 160 133 144 133H132" stroke="#94A3B8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M64 53C84 53 92 64 92 84V116" stroke="#38BDF8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M132 143H144C164 143 182 150 182 172" stroke="#38BDF8" stroke-width="10" stroke-linecap="round"/>
+
+    <circle cx="64" cy="53" r="8" fill="#38BDF8"/>
+    <circle cx="144" cy="77" r="8" fill="#38BDF8"/>
+    <circle cx="92" cy="116" r="8" fill="#38BDF8"/>
+    <circle cx="182" cy="172" r="8" fill="#38BDF8"/>
+  </g>
+
+  <g transform="translate(264 0)">
+    <text x="0" y="116" font-size="78" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="url(#flowText)">PipeBridge</text>
+    <text x="3" y="164" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="500" fill="#475569">
+      Semantic automation layer for Pipefy in Python
+    </text>
+  </g>
+</svg>

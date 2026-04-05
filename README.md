@@ -20,25 +20,27 @@
 
 # PipeBridge
 
-SDK Python para integracao com Pipefy com foco em:
+Python SDK for Pipefy integration focused on:
 
-- facade publica simples
-- models tipados
-- update seguro de campos
-- move seguro entre fases
-- upload e download de arquivos
-- cache de schema
-- extensibilidade por regras, handlers, policies e steps
+- simple public facade
+- typed models
+- safe field updates
+- safe phase moves
+- file upload and download
+- schema caching
+- extensibility through rules, handlers, policies, and steps
 
-Este projeto nao foi desenhado como wrapper raso de GraphQL. A proposta aqui e entregar uma camada de integracao previsivel, extensivel e adequada para cenarios reais de automacao.
+This project was not designed as a thin GraphQL wrapper. The goal is to provide a predictable, extensible integration layer suited for real-world automation scenarios.
 
-## Instalacao
+Documentation: https://rmcavalcante7.github.io/pipebridge/
+
+## Installation
 
 ```bash
 pip install pipebridge
 ```
 
-Para desenvolvimento:
+For development:
 
 ```bash
 pip install -e .[dev]
@@ -50,7 +52,7 @@ pip install -e .[dev]
 from pipebridge import PipeBridge
 
 api = PipeBridge(
-  token="SEU_TOKEN",
+  token="YOUR_TOKEN",
   base_url="https://app.pipefy.com/queries",
 )
 
@@ -59,22 +61,22 @@ print(card.title)
 print(card.current_phase.name if card.current_phase else None)
 ```
 
-## Superficie Publica
+## Public Surface
 
-A entrada principal do SDK e a facade:
+The main SDK entry point is the facade:
 
 ```python
-api = PipeBridge(token="SEU_TOKEN", base_url="https://app.pipefy.com/queries")
+api = PipeBridge(token="YOUR_TOKEN", base_url="https://app.pipefy.com/queries")
 ```
 
-Dominios publicos:
+Public domains:
 
 - `api.cards`
 - `api.phases`
 - `api.pipes`
 - `api.files`
 
-Subniveis quando aplicavel:
+Sub-levels when applicable:
 
 - `api.cards.raw`
 - `api.cards.structured`
@@ -83,7 +85,7 @@ Subniveis quando aplicavel:
 - `api.pipes.raw`
 - `api.pipes.structured`
 
-Objetos tambem expostos no topo do pacote:
+Objects also exposed at the package top level:
 
 - `PipefyHttpClient`
 - `CardService`
@@ -96,9 +98,9 @@ Objetos tambem expostos no topo do pacote:
 - `CardUpdateConfig`
 - `CardMoveConfig`
 
-## Principais Capacidades
+## Core Capabilities
 
-### 1. Recuperacao de cards, pipes e fases
+### 1. Card, pipe, and phase retrieval
 
 ```python
 card = api.cards.get("123")
@@ -106,7 +108,7 @@ phase = api.phases.get("456")
 pipe = api.pipes.get("789")
 ```
 
-### 2. Catalogo de schema do pipe
+### 2. Pipe schema catalog
 
 ```python
 pipe = api.pipes.getFieldCatalog("789")
@@ -117,14 +119,14 @@ for phase in pipe.iterPhases():
         print(field.id, field.type, field.options)
 ```
 
-Esse catalogo e importante para:
+This catalog is important for:
 
-- discovery de campos
-- validacao de update
-- suporte a tipos
-- cache de schema
+- field discovery
+- update validation
+- type support
+- schema caching
 
-### 3. Update de campos de card
+### 3. Card field updates
 
 ```python
 from pipebridge import CardUpdateConfig
@@ -145,10 +147,10 @@ result = api.cards.updateFields(
 )
 ```
 
-O fluxo de update atual suporta familias importantes de campo, incluindo:
+The current update flow supports important field families, including:
 
-- texto curto e longo
-- numero
+- short and long text
+- number
 - currency
 - email
 - date
@@ -162,11 +164,11 @@ O fluxo de update atual suporta familias importantes de campo, incluindo:
 - assignee_select
 - attachment
 
-Observacao importante:
+Important note:
 
-- `connector` ficou fora do escopo da V1 por decisao arquitetural
+- `connector` is out of scope for V1 by architectural decision
 
-### 4. Move seguro entre fases
+### 4. Safe phase moves
 
 ```python
 from pipebridge import CardMoveConfig
@@ -179,13 +181,13 @@ result = api.cards.moveSafely(
 )
 ```
 
-Esse fluxo valida:
+This flow validates:
 
-- se a fase atual e a esperada, quando informada
-- se a transicao e permitida pela configuracao da fase atual
-- se os campos obrigatorios da fase destino estao preenchidos
+- whether the current phase matches the expected phase, when provided
+- whether the transition is allowed by the current phase configuration
+- whether required fields in the destination phase are filled
 
-### 5. Upload e download de arquivos
+### 5. File upload and download
 
 ```python
 from pipebridge import FileUploadRequest, FileDownloadRequest, UploadConfig
@@ -210,15 +212,15 @@ download_request = FileDownloadRequest(
 files = api.files.downloadAllAttachments(download_request)
 ```
 
-## Extensibilidade
+## Extensibility
 
-Uma das propostas centrais do projeto e permitir extensao sem fork do SDK.
+One of the project's core goals is to allow extension without forking the SDK.
 
-### 1. Regras customizadas
+### 1. Custom rules
 
-Voce pode injetar regras extras em fluxos publicos.
+You can inject extra rules into public flows.
 
-Exemplo com update:
+Example with updates:
 
 ```python
 from pipebridge.exceptions import ValidationError
@@ -247,7 +249,7 @@ api.cards.updateField(
 )
 ```
 
-### 2. Regex pronta para validacao de campo
+### 2. Ready-to-use regex for field validation
 
 ```python
 from pipebridge.service.card.flows.update.rules.regexFieldPatternRule import (
@@ -264,9 +266,9 @@ api.cards.updateField(
 )
 ```
 
-### 3. Handlers customizados no update
+### 3. Custom update handlers
 
-Voce pode sobrescrever ou adicionar suporte de tipo em runtime:
+You can override or add type support at runtime:
 
 ```python
 from pipebridge.service.card.flows.update.dispatcher.baseCardFieldUpdateHandler import (
@@ -297,7 +299,7 @@ api.cards.updateField(
 )
 ```
 
-### 4. Policies de retry e circuit breaker
+### 4. Retry and circuit breaker policies
 
 ```python
 from pipebridge import UploadConfig
@@ -312,9 +314,9 @@ config = UploadConfig(
 api.files.uploadFile(request=upload_request, config=config)
 ```
 
-### 5. Steps customizados no upload
+### 5. Custom upload steps
 
-Na V1, extensao por `steps` esta publica apenas no upload:
+In V1, `steps` extensibility is publicly exposed only for uploads:
 
 - `extra_steps_before`
 - `extra_steps_after`
@@ -334,15 +336,15 @@ api.files.uploadFile(
 )
 ```
 
-Observacao:
+Note:
 
-- update de card e move seguro ainda nao expoem `steps` customizados na API publica da V1
+- card updates and safe moves do not yet expose custom `steps` in the V1 public API
 
-## Models e Navegacao Semantica
+## Models and Semantic Navigation
 
-Os models do SDK foram desenhados para navegacao semantica. O objetivo e evitar acesso estrutural direto por mapas sempre que possivel.
+SDK models were designed for semantic navigation. The goal is to avoid direct structural map access whenever possible.
 
-Exemplos:
+Examples:
 
 ```python
 card = api.cards.get("123")
@@ -360,17 +362,17 @@ for field in pipe.getFieldsByType("select"):
     print(field.id, field.label)
 ```
 
-## Cache de Schema
+## Schema Cache
 
-O SDK possui cache em memoria para schema de pipe:
+The SDK provides in-memory cache for pipe schema:
 
-- orientado por `pipe_id`
-- com TTL
-- lock por chave
-- refresh lazy sob demanda
-- sem thread em background na V1
+- keyed by `pipe_id`
+- with TTL
+- with per-key locking
+- lazy refresh on demand
+- no background thread in V1
 
-Na facade de cards:
+On the card facade:
 
 ```python
 stats = api.cards.getSchemaCacheStats()
@@ -378,79 +380,79 @@ entry = api.cards.getSchemaCacheEntryInfo("789")
 api.cards.invalidateSchemaCache("789")
 ```
 
-## Casos de Uso Prontos
+## Ready-to-Use Examples
 
-A pasta [useCases/](useCases/) e o ponto de partida recomendado para usuarios finais.
+The [useCases](https://github.com/rmcavalcante7/pipebridge/tree/main/useCases) folder is the recommended starting point for end users.
 
-Ela contem exemplos executaveis para:
+It contains executable examples for:
 
-- inspecao de catalogo de campos do pipe
-- inspecao em cascata do pipe, fases e cards
-- update de campos do card
-- update com regras extras
+- pipe field catalog inspection
+- cascading inspection across pipes, phases, and cards
+- card field updates
+- updates with extra rules
 - custom handler
-- move seguro
-- upload e download
-- upload com regras e policies
-- upload com steps customizados
+- safe moves
+- upload and download
+- uploads with rules and policies
+- uploads with custom steps
 
-Veja [useCases/README.md](useCases/README.md).
+See [useCases/README.md](https://github.com/rmcavalcante7/pipebridge/tree/main/useCases/README.md).
 
-## Documentacao HTML
+## HTML Documentation
 
-O projeto tambem possui estrutura de documentacao Sphinx em [docs/](docs/).
+The project also includes a Sphinx documentation structure in [docs/](docs/).
 
-Esse e o caminho pensado para a documentacao HTML navegavel do SDK, incluindo:
+This is the intended path for the SDK's navigable HTML documentation, including:
 
-- visao geral
+- overview
 - quick start
-- extensibilidade
-- referencia de API
-- guias de desenvolvimento
+- extensibility
+- API reference
+- development guides
 
-Para gerar localmente:
+To generate locally:
 
 ```bash
 pip install -e .[docs]
 sphinx-build -b html docs docs/_build/html
 ```
 
-Entrada principal da documentacao no repositório:
+Main documentation entry point in the repository:
 
 - [docs/index.rst](docs/index.rst)
 
-URL esperada da documentacao publicada via GitHub Pages:
+Expected URL for published documentation via GitHub Pages:
 
 - `https://rmcavalcante7.github.io/pipebridge/`
 
-## Testes
+## Tests
 
-O projeto esta organizado assim:
+The project is organized as follows:
 
 - `tests/unit`
 - `tests/functional`
 - `tests/integration`
 - `useCases/`
 
-Papel de cada um:
+Role of each:
 
 - `unit`
-  - logica isolada
-  - sem rede
-  - sem credenciais
+  - isolated logic
+  - no network
+  - no credentials
 
 - `functional`
-  - API publica
-  - sem Pipefy real
-  - com fakes/doubles
+  - public API
+  - no real Pipefy
+  - with fakes/doubles
 
 - `integration`
-  - operacoes reais no Pipefy
-  - dependem de:
+  - real Pipefy operations
+  - depend on:
     - `PIPEFY_API_TOKEN`
-    - `PIPEFY_BASE_URL` opcional
+    - optional `PIPEFY_BASE_URL`
 
-Comandos:
+Commands:
 
 ```bash
 python -m pytest tests/unit tests/functional -v
@@ -458,33 +460,33 @@ python -m pytest tests/integration -v
 python -m pytest tests -v
 ```
 
-Para integracao real:
+For real integration:
 
 ```powershell
-$env:PIPEFY_API_TOKEN="SEU_TOKEN"
+$env:PIPEFY_API_TOKEN="YOUR_TOKEN"
 $env:PIPEFY_BASE_URL="https://app.pipefy.com/queries"
 python -m pytest tests/integration -v
 ```
 
-## Estado Atual da V1
+## Current V1 Status
 
-A V1 esta fechada com:
+V1 is complete with:
 
-- facade publica coerente
-- fluxo de update de card
-- fluxo de move seguro
-- fluxo de upload/download
-- exceptions semanticas
-- cache de schema
-- pytest estruturado
-- exemplos de uso para usuario final
+- coherent public facade
+- card update flow
+- safe move flow
+- upload/download flow
+- semantic exceptions
+- schema cache
+- structured pytest suite
+- end-user usage examples
 
-Fora do escopo da V1:
+Out of scope for V1:
 
-- `connector` como operacao relacional completa
-- extensao publica por `steps` em update e move
+- `connector` as a complete relational operation
+- public `steps` extensibility in updates and moves
 
-## Autor
+## Author
 
 Rafael Mota Cavalcante
 
@@ -492,6 +494,6 @@ Rafael Mota Cavalcante
 - LinkedIn: [rafael-cavalcante-dev-specialist](https://www.linkedin.com/in/rafael-cavalcante-dev-specialist)
 - E-mail: [rafaelcavalcante7@msn.com](mailto:rafaelcavalcante7@msn.com)
 
-## Licenca
+## License
 
 MIT

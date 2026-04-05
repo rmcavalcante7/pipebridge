@@ -1,0 +1,38 @@
+<svg width="960" height="240" viewBox="0 0 960 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="octoMain" x1="30" y1="32" x2="214" y2="196" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B7285"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="octoText" x1="264" y1="56" x2="760" y2="182" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="240" rx="28" fill="#F8FAFC"/>
+
+  <g transform="translate(24 24)">
+    <path d="M104 36C64 36 34 66 34 106C34 128 44 146 62 158V174C62 182 70 188 78 188C86 188 94 182 94 174V160H114V174C114 182 122 188 130 188C138 188 146 182 146 174V156C166 144 178 126 178 106C178 66 146 36 104 36Z" fill="url(#octoMain)"/>
+    <circle cx="84" cy="94" r="8" fill="#F8FAFC"/>
+    <circle cx="124" cy="94" r="8" fill="#F8FAFC"/>
+    <circle cx="84" cy="94" r="3" fill="#0F172A"/>
+    <circle cx="124" cy="94" r="3" fill="#0F172A"/>
+    <path d="M90 118C98 124 110 124 118 118" stroke="#E0F2FE" stroke-width="6" stroke-linecap="round"/>
+    <path d="M54 142C34 144 24 154 24 168C24 182 36 190 48 190C60 190 68 182 70 170" stroke="#94A3B8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M78 152C62 156 54 166 54 178C54 188 62 196 72 196C82 196 90 190 92 180" stroke="#94A3B8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M130 152C146 156 154 166 154 178C154 188 146 196 136 196C126 196 118 190 116 180" stroke="#94A3B8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M154 142C174 144 184 154 184 168C184 182 172 190 160 190C148 190 140 182 138 170" stroke="#94A3B8" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="24" cy="168" r="8" fill="#38BDF8"/>
+    <circle cx="54" cy="178" r="8" fill="#38BDF8"/>
+    <circle cx="154" cy="178" r="8" fill="#38BDF8"/>
+    <circle cx="184" cy="168" r="8" fill="#38BDF8"/>
+  </g>
+
+  <g transform="translate(264 0)">
+    <text x="0" y="116" font-size="78" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="url(#octoText)">PipeBridge</text>
+    <text x="3" y="164" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="500" fill="#5B6778">
+      Workflow orchestration and integrations for Python
+    </text>
+  </g>
+</svg>

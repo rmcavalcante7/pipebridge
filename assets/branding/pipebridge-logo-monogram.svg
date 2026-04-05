@@ -1,0 +1,30 @@
+<svg width="960" height="240" viewBox="0 0 960 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="monoA" x1="30" y1="30" x2="220" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B7285"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="monoText" x1="266" y1="64" x2="760" y2="182" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="240" rx="28" fill="#F8FAFC"/>
+
+  <g transform="translate(28 24)">
+    <rect x="0" y="0" width="196" height="196" rx="36" fill="#E2E8F0"/>
+    <path d="M46 44H103C134 44 156 66 156 95C156 124 134 146 103 146H74V94H101C113 94 121 87 121 76C121 65 113 58 101 58H62V166H46V44Z" fill="url(#monoA)"/>
+    <path d="M108 44H148C176 44 196 60 196 84C196 98 188 110 175 116C191 122 202 136 202 154C202 180 180 196 148 196H108V182H146C164 182 176 171 176 156C176 141 164 132 146 132H126V118H143C159 118 170 108 170 94C170 80 159 70 143 70H124V196H108V44Z" fill="#0F172A"/>
+    <path d="M74 94H126" stroke="#38BDF8" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="74" cy="94" r="8" fill="#38BDF8"/>
+    <circle cx="126" cy="94" r="8" fill="#38BDF8"/>
+  </g>
+
+  <g transform="translate(266 0)">
+    <text x="0" y="116" font-size="78" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="url(#monoText)">PipeBridge</text>
+    <text x="3" y="164" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="500" fill="#475569">
+      Typed workflows and integrations for Python
+    </text>
+  </g>
+</svg>

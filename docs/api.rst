@@ -24,6 +24,7 @@ Card Service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Phase Service
 -------------
@@ -32,6 +33,7 @@ Phase Service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Pipe Service
 ------------
@@ -40,6 +42,7 @@ Pipe Service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 File Service
 ------------
@@ -48,6 +51,7 @@ File Service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Models
 ------
@@ -74,4 +78,3 @@ Exceptions
    :members:
    :undoc-members:
    :show-inheritance:
-

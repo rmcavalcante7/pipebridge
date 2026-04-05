@@ -129,7 +129,9 @@ class FileService:
         implements a pipeline-based upload mechanism.
 
         :param request: FileUploadRequest = Upload request object
-        :param extra_rules Set of custom rules constructed by te user. The rules will be applied before the upload flow.
+        :param extra_rules: Optional[list[BaseRule]] = Set of custom rules
+            constructed by the user. The rules will be applied before the
+            upload flow.
         :param config: Optional[UploadConfig] = Configuration for upload process
         :param extra_steps_before: Optional[Sequence[BaseStep]] = Additional
             custom steps executed before the built-in upload pipeline
