@@ -1,3 +1,23 @@
+<p align="center">
+  <img src="assets/branding/pipebridge-logo.svg" alt="PipeBridge logo" width="720" />
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/pipebridge/">
+    <img src="https://img.shields.io/pypi/v/pipebridge" alt="PyPI" />
+  </a>
+  <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
+  </a>
+  <a href="https://rmcavalcante7.github.io/pipebridge/">
+    <img src="https://img.shields.io/badge/docs-GitHub%20Pages-0B7285" alt="Docs" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-1F2937" alt="License" />
+  </a>
+  <img src="https://img.shields.io/badge/python-3.14-3776AB" alt="Python 3.14" />
+</p>
+
 # PipeBridge
 
 SDK Python para integracao com Pipefy com foco em:
