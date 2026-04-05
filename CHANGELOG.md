@@ -1,15 +1,15 @@
 # Changelog
 
-Todas as mudancas relevantes deste projeto devem ser registradas aqui.
+All relevant changes to this project should be recorded here.
 
-O formato segue a ideia de:
+The format follows this convention:
 
-- `feat:` novas funcionalidades
-- `fix:` correcoes
-- `refactor:` refatoracoes internas
-- `docs:` documentacao
-- `test:` testes
+- `feat:` new features
+- `fix:` bug fixes
+- `refactor:` internal refactoring
+- `docs:` documentation
+- `test:` tests
 
 ## [Unreleased]
 
-- Estrutura de publicacao, CI/CD e documentacao profissional preparada para a V1.
+- Professional publishing, CI/CD, and documentation structure prepared for V1.

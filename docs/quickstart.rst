@@ -16,7 +16,7 @@ Facade Entry Point
    from pipebridge import PipeBridge
 
    api = PipeBridge(
-       token="SEU_TOKEN",
+       token="YOUR_TOKEN",
        base_url="https://app.pipefy.com/queries",
    )
 
@@ -41,8 +41,8 @@ Safe Card Update
    result = api.cards.updateFields(
        card_id="123",
        fields={
-           "titulo": "Novo valor",
-           "prioridade": "Alta",
+           "title": "New value",
+           "priority": "High",
        },
        expected_phase_id="456",
        config=CardUpdateConfig(
@@ -75,12 +75,11 @@ File Upload
    from pipebridge import FileUploadRequest
 
    request = FileUploadRequest(
-       file_name="arquivo.txt",
-       file_bytes=b"conteudo",
+       file_name="sample.txt",
+       file_bytes=b"content",
        card_id="123",
-       field_id="anexos",
+       field_id="attachments",
        organization_id="999",
    )
 
    result = api.files.uploadFile(request)
-

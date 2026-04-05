@@ -35,7 +35,7 @@ Integration tests use the real Pipefy API and require:
 
 .. code-block:: powershell
 
-   $env:PIPEFY_API_TOKEN="SEU_TOKEN"
+   $env:PIPEFY_API_TOKEN="YOUR_TOKEN"
    $env:PIPEFY_BASE_URL="https://app.pipefy.com/queries"
    python -m pytest tests/integration -v
 
@@ -46,4 +46,3 @@ Build Local HTML Docs
 
    pip install -e .[docs]
    sphinx-build -b html docs docs/_build/html
-

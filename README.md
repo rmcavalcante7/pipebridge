@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/pipebridge-logo.svg" alt="PipeBridge logo" width="720" />
+  <img src="https://raw.githubusercontent.com/rmcavalcante7/pipebridge/main/assets/branding/pipebridge-logo.svg" alt="PipeBridge logo" width="720" />
 </p>
 
 <p align="center">
@@ -134,8 +134,8 @@ from pipebridge import CardUpdateConfig
 result = api.cards.updateFields(
   card_id="123",
   fields={
-    "titulo": "Novo valor",
-    "prioridade": "Alta",
+    "title": "New value",
+    "priority": "High",
   },
   expected_phase_id="456",
   config=CardUpdateConfig(
@@ -193,10 +193,10 @@ This flow validates:
 from pipebridge import FileUploadRequest, FileDownloadRequest, UploadConfig
 
 upload_request = FileUploadRequest(
-  file_name="arquivo.txt",
-  file_bytes=b"conteudo",
+  file_name="sample.txt",
+  file_bytes=b"content",
   card_id="123",
-  field_id="anexos",
+  field_id="attachments",
   organization_id="999",
   expected_phase_id="456",
 )
@@ -205,7 +205,7 @@ upload_result = api.files.uploadFile(upload_request)
 
 download_request = FileDownloadRequest(
   card_id="123",
-  field_id="anexos",
+  field_id="attachments",
   output_dir="./downloads",
 )
 
@@ -243,9 +243,9 @@ class UppercaseOnlyRule(BaseRule):
 
 api.cards.updateField(
   card_id="123",
-  field_id="codigo",
+  field_id="code",
   value="VALOR",
-  extra_rules=[UppercaseOnlyRule("codigo")],
+  extra_rules=[UppercaseOnlyRule("code")],
 )
 ```
 
@@ -258,10 +258,10 @@ from pipebridge.service.card.flows.update.rules.regexFieldPatternRule import (
 
 api.cards.updateField(
   card_id="123",
-  field_id="codigo",
+  field_id="code",
   value="ABC-123",
   extra_rules=[
-    RegexFieldPatternRule({"codigo": r"^[A-Z]{3}-\d{3}$"})
+    RegexFieldPatternRule({"code": r"^[A-Z]{3}-\d{3}$"})
   ],
 )
 ```
@@ -293,8 +293,8 @@ class UppercaseTextHandler(BaseCardFieldUpdateHandler):
 
 api.cards.updateField(
   card_id="123",
-  field_id="titulo",
-  value="meu texto",
+  field_id="title",
+  value="my text",
   extra_handlers={"short_text": UppercaseTextHandler()},
 )
 ```
@@ -349,13 +349,13 @@ Examples:
 ```python
 card = api.cards.get("123")
 
-if card.hasField("titulo"):
-    print(card.requireFieldValue("titulo"))
+if card.hasField("title"):
+    print(card.requireFieldValue("title"))
 
 phase = api.phases.get("456")
-print(phase.getFieldType("prioridade"))
-print(phase.getFieldOptions("prioridade"))
-print(phase.isFieldRequired("prioridade"))
+print(phase.getFieldType("priority"))
+print(phase.getFieldOptions("priority"))
+print(phase.isFieldRequired("priority"))
 
 pipe = api.pipes.getFieldCatalog("789")
 for field in pipe.getFieldsByType("select"):
