@@ -43,6 +43,7 @@ html_theme = "furo"
 html_title = "PipeBridge"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+html_logo = "../assets/branding/pipebridge-mark.svg"
 html_theme_options = {
     "source_repository": "https://github.com/rmcavalcante7/pipebridge/",
     "source_branch": "main",
@@ -50,4 +51,3 @@ html_theme_options = {
     "top_of_page_button": "edit",
     "footer_icons": [],
 }
-

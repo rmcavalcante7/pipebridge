@@ -11,3 +11,7 @@
 .content-icon-container {
   display: none;
 }
+
+.sidebar-brand img {
+  max-width: 54px;
+}

@@ -1,0 +1,36 @@
+<svg width="960" height="240" viewBox="0 0 960 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bridgeGradient" x1="40" y1="40" x2="220" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B7285"/>
+      <stop offset="1" stop-color="#1C7ED6"/>
+    </linearGradient>
+    <linearGradient id="textGradient" x1="260" y1="68" x2="760" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="240" rx="28" fill="#F8FAFC"/>
+
+  <g transform="translate(36 34)">
+    <rect x="0" y="128" width="188" height="18" rx="9" fill="#CBD5E1"/>
+    <rect x="18" y="74" width="24" height="72" rx="10" fill="url(#bridgeGradient)"/>
+    <rect x="146" y="74" width="24" height="72" rx="10" fill="url(#bridgeGradient)"/>
+
+    <path d="M30 108C50 56 84 30 94 30C104 30 138 56 158 108" stroke="url(#bridgeGradient)" stroke-width="22" stroke-linecap="round"/>
+    <path d="M58 106V142" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+    <path d="M94 84V142" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+    <path d="M130 106V142" stroke="#94A3B8" stroke-width="6" stroke-linecap="round"/>
+
+    <circle cx="18" cy="137" r="12" fill="#0B7285"/>
+    <circle cx="94" cy="30" r="12" fill="#1C7ED6"/>
+    <circle cx="170" cy="137" r="12" fill="#0B7285"/>
+  </g>
+
+  <g transform="translate(264 0)">
+    <text x="0" y="118" font-size="76" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="url(#textGradient)">PipeBridge</text>
+    <text x="3" y="166" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="500" fill="#475569">
+      Unofficial Python SDK for Pipefy
+    </text>
+  </g>
+</svg>

@@ -1,0 +1,22 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="markGradient" x1="32" y1="28" x2="224" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B7285"/>
+      <stop offset="1" stop-color="#1C7ED6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="44" fill="#F8FAFC"/>
+  <rect x="28" y="164" width="200" height="20" rx="10" fill="#CBD5E1"/>
+  <rect x="46" y="96" width="28" height="88" rx="12" fill="url(#markGradient)"/>
+  <rect x="182" y="96" width="28" height="88" rx="12" fill="url(#markGradient)"/>
+
+  <path d="M60 136C78 74 117 42 128 42C139 42 178 74 196 136" stroke="url(#markGradient)" stroke-width="24" stroke-linecap="round"/>
+  <path d="M92 132V180" stroke="#94A3B8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M128 104V180" stroke="#94A3B8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M164 132V180" stroke="#94A3B8" stroke-width="8" stroke-linecap="round"/>
+
+  <circle cx="46" cy="174" r="13" fill="#0B7285"/>
+  <circle cx="128" cy="42" r="13" fill="#1C7ED6"/>
+  <circle cx="210" cy="174" r="13" fill="#0B7285"/>
+</svg>
