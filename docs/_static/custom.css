@@ -1,0 +1,13 @@
+:root {
+  --color-brand-primary: #0b7285;
+  --color-brand-content: #0b7285;
+}
+
+.sidebar-brand-text {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.content-icon-container {
+  display: none;
+}

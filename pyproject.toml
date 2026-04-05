@@ -3,23 +3,27 @@ requires = [ "setuptools>=65.0", "wheel", "setuptools_scm[toml]>=8.0",]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pipefy"
+name = "pipebridge"
 dynamic = [ "version",]
-description = "Secure and extensible credential management SDK for Python applications."
+description = "Unofficial Python SDK for Pipefy with typed models, safe workflows, and extensible integrations."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "infra-core-sdk",
+    "requests>=2.32.0",
 ]
 [[project.authors]]
-name = "Rafael Cavalcante"
+name = "Rafael Mota Cavalcante"
+email = "rafaelcavalcante7@msn.com"
 
 [project.optional-dependencies]
 dev = [ "pytest>=8.0.0", "pytest-cov>=4.0.0", "black>=24.0.0", "mypy>=1.0.0", "build", "twine",]
+docs = [ "sphinx>=8.0.0", "furo>=2024.8.6", "sphinx-copybutton>=0.5.2", "myst-parser>=4.0.0",]
 
 [project.urls]
-Homepage = "https://github.com/rmcavalcante7/"
-Repository = "https://github.com/rmcavalcante7/infra-core-sdk"
+Homepage = "https://github.com/rmcavalcante7/pipebridge"
+Repository = "https://github.com/rmcavalcante7/pipebridge"
+Issues = "https://github.com/rmcavalcante7/pipebridge/issues"
 
 
 [tool.black]
@@ -27,9 +31,20 @@ line-length = 88
 
 [tool.mypy]
 strict = true
+mypy_path = "src"
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
 testpaths = [ "tests",]
+markers = [
+    "unit: fast isolated tests with no network or external credentials",
+    "functional: tests focused on the public SDK API surface",
+    "integration: tests that exercise the real Pipefy API and require credentials",
+]
 
 [tool.setuptools.packages.find]
 where = [ "src",]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"

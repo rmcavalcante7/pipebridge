@@ -1,0 +1,25 @@
+include README.md
+include CHANGELOG.md
+include LICENSE
+
+graft src/pipebridge
+
+prune .aiassistant
+prune .github
+prune .idea
+prune .pytest_cache
+prune .venv
+prune build
+prune dist
+prune secret
+prune tests
+prune useCases
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.pyo
+
+exclude Credentials.py
+exclude pyproject.py
+exclude src/__init__.py
+exclude src/pipebridge/dispatcher.zip
