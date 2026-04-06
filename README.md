@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/pipebridge/">
-    <img src="https://img.shields.io/pypi/v/pipebridge" alt="PyPI" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.1.3">
+    <img src="https://img.shields.io/badge/tag-v0.1.3-2563EB" alt="Tag v0.1.3" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -20,19 +20,57 @@
 
 # PipeBridge
 
-Python SDK for Pipefy integration focused on:
+PipeBridge is a Python SDK for Pipefy that gives you a semantic, reliable layer for building production-grade automations.
 
-- simple public facade
-- typed models
+Instead of wiring raw GraphQL queries, manual validation, and brittle payload handling into every integration, PipeBridge gives you predictable workflows, typed models, and extension points that fit real automation scenarios.
+
+> PipeBridge is not a thin GraphQL wrapper.
+> It is an integration framework designed for maintainable Pipefy automation.
+
+Quick links:
+
+- Documentation: https://rmcavalcante7.github.io/pipebridge/
+- Use cases: https://github.com/rmcavalcante7/pipebridge/tree/main/useCases
+- PyPI: https://pypi.org/project/pipebridge/
+
+## Summary
+
+- [Why PipeBridge?](#why-pipebridge)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Public Surface](#public-surface)
+- [Core Capabilities](#core-capabilities)
+- [Full Structure Traversal](#full-structure-traversal)
+- [Extensibility](#extensibility)
+- [Models and Semantic Navigation](#models-and-semantic-navigation)
+- [Schema Cache](#schema-cache)
+- [Ready-to-Use Examples](#ready-to-use-examples)
+- [HTML Documentation](#html-documentation)
+- [Tests](#tests)
+- [Current V1 Status](#current-v1-status)
+- [Vision](#vision)
+- [Author](#author)
+- [License](#license)
+
+## Why PipeBridge?
+
+Direct Pipefy integrations usually force you to deal with:
+
+- verbose GraphQL operations
+- inconsistent payload structures
+- repeated validation logic
+- unsafe phase transitions
+- ad hoc file handling and retries
+
+PipeBridge addresses that with:
+
+- a simple public facade
+- typed models with semantic navigation
 - safe field updates
 - safe phase moves
-- file upload and download
+- file upload and download flows
 - schema caching
 - extensibility through rules, handlers, policies, and steps
-
-This project was not designed as a thin GraphQL wrapper. The goal is to provide a predictable, extensible integration layer suited for real-world automation scenarios.
-
-Documentation: https://rmcavalcante7.github.io/pipebridge/
 
 ## Installation
 
@@ -126,7 +164,7 @@ This catalog is important for:
 - type support
 - schema caching
 
-### 3. Card field updates
+### 3. Safe card field updates
 
 ```python
 from pipebridge import CardUpdateConfig
@@ -212,6 +250,44 @@ download_request = FileDownloadRequest(
 files = api.files.downloadAllAttachments(download_request)
 ```
 
+## Full Structure Traversal
+
+For a complete real example, see:
+
+- [useCases/pipe_cascade_inspection.py](https://github.com/rmcavalcante7/pipebridge/blob/main/useCases/pipe_cascade_inspection.py)
+
+Simplified loop:
+
+```python
+pipe = api.pipes.get("PIPE_ID")
+
+print(f"Pipe: {pipe.name} ({pipe.id})")
+
+for phase_summary in pipe.iterPhases():
+    phase = api.phases.get(phase_summary.id)
+    print(f"Phase: {phase.name} ({phase.id})")
+
+    for field in phase.iterFields():
+        print(
+            f"id={field.id} | "
+            f"type={field.type} | "
+            f"required={field.required} | "
+            f"options={field.options}"
+        )
+
+    cards = api.phases.listCards(phase.id)
+    for card in cards:
+        print(f"Card: {card.title} ({card.id})")
+
+        for card_field in card.iterFields():
+            print(
+                f"field_id={card_field.id} | "
+                f"label={card_field.label} | "
+                f"type={card_field.type} | "
+                f"value={card_field.value}"
+            )
+```
+
 ## Extensibility
 
 One of the project's core goals is to allow extension without forking the SDK.
@@ -244,7 +320,7 @@ class UppercaseOnlyRule(BaseRule):
 api.cards.updateField(
   card_id="123",
   field_id="code",
-  value="VALOR",
+  value="VALUE",
   extra_rules=[UppercaseOnlyRule("code")],
 )
 ```
@@ -380,6 +456,22 @@ entry = api.cards.getSchemaCacheEntryInfo("789")
 api.cards.invalidateSchemaCache("789")
 ```
 
+And for direct schema inspection:
+
+```python
+pipe_schema = api.pipes.getFieldCatalog("789")
+
+for phase in pipe_schema.iterPhases():
+    print(f"Phase: {phase.name} ({phase.id})")
+    for field in phase.iterFields():
+        print(
+            f"id={field.id} | "
+            f"label={field.label} | "
+            f"type={field.type} | "
+            f"required={field.required}"
+        )
+```
+
 ## Ready-to-Use Examples
 
 The [useCases](https://github.com/rmcavalcante7/pipebridge/tree/main/useCases) folder is the recommended starting point for end users.
@@ -423,7 +515,7 @@ Main documentation entry point in the repository:
 
 Expected URL for published documentation via GitHub Pages:
 
-- `https://rmcavalcante7.github.io/pipebridge/`
+- [https://rmcavalcante7.github.io/pipebridge/](https://rmcavalcante7.github.io/pipebridge/)
 
 ## Tests
 
@@ -485,6 +577,17 @@ Out of scope for V1:
 
 - `connector` as a complete relational operation
 - public `steps` extensibility in updates and moves
+
+## Vision
+
+PipeBridge aims to be the standard semantic integration layer for Pipefy automation.
+
+The current product direction is clear:
+
+- keep the public facade small and coherent
+- make common automation flows safer by default
+- support extension without forcing forks
+- keep documentation and examples strong enough for real adoption
 
 ## Author
 
