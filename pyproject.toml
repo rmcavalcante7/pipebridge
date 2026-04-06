@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "pipebridge"
 dynamic = [ "version",]
 description = "Semantic integration layer for building scalable and reliable Pipefy automations."
-readme = "PYPI_README.md"
+readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "infra-core-sdk",
