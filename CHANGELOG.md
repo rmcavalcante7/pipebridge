@@ -14,6 +14,10 @@ The format follows this convention:
 
 - No pending entries.
 
+## [0.2.3] - 2026-04-10
+
+- `docs:` updated the published README badge and release highlight so the PyPI page for `0.2.3` points to tag `v0.2.3`
+
 ## [0.2.2] - 2026-04-10
 
 - `docs:` updated the README release badge and release highlight to point to `v0.2.1` before republishing on PyPI
