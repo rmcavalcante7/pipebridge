@@ -34,6 +34,11 @@ New in `v0.2.4`:
 - transport-level TLS and retry configuration
 - declared support for Python 3.12+
 
+Runtime note:
+
+- PipeBridge is developed and validated on Python 3.14.
+- Package metadata allows installation on Python 3.12+, but compatibility below 3.14 has not yet been fully validated by this project.
+
 Quick links:
 
 - Documentation: https://rmcavalcante7.github.io/pipebridge/

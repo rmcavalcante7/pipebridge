@@ -17,8 +17,7 @@ The format follows this convention:
 ## [0.2.4] - 2026-04-10
 
 - `build:` relaxed the package metadata to support Python `>=3.12`
-- `ci:` updated automation workflows to run on Python 3.12+ instead of only 3.14
-- `docs:` updated the README runtime badge and release highlight for `v0.2.4`
+- `docs:` clarified that the project is developed and validated on Python `3.14`, while package metadata allows installation on Python `3.12+`
 
 ## [0.2.3] - 2026-04-10
 
