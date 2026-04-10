@@ -14,6 +14,11 @@ The format follows this convention:
 
 - No pending entries.
 
+## [0.2.5] - 2026-04-10
+
+- `build:` restored the package runtime restriction to Python `>=3.14,<3.15` after import failures were confirmed on Python `3.13`
+- `docs:` updated the published README badge and runtime badge for `v0.2.5`
+
 ## [0.2.4] - 2026-04-10
 
 - `build:` relaxed the package metadata to support Python `>=3.12`
