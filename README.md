@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.2.0">
-    <img src="https://img.shields.io/badge/tag-v0.2.0-2563EB" alt="Tag v0.2.0" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.2.1">
+    <img src="https://img.shields.io/badge/tag-v0.2.1-2563EB" alt="Tag v0.2.1" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -27,7 +27,7 @@ Instead of wiring raw GraphQL queries, manual validation, and brittle payload ha
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework designed for maintainable Pipefy automation.
 
-New in `v0.2.0`:
+New in `v0.2.1`:
 
 - start form schema coverage in the pipe catalog
 - safe card creation against start form fields
