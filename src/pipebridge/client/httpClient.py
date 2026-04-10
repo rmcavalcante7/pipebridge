@@ -2,10 +2,12 @@
 # Dependencies
 # ============================================================
 import inspect
+import time
 from typing import Any, Dict, Optional
 
 import requests  # type: ignore[import-untyped]
 
+from pipebridge.client.transportConfig import TransportConfig
 from pipebridge.exceptions import (
     ValidationError,
     MissingBaseUrlError,
@@ -51,7 +53,12 @@ class PipefyHttpClient:
         True
     """
 
-    def __init__(self, auth_key: str, base_url: str) -> None:
+    def __init__(
+        self,
+        auth_key: str,
+        base_url: str,
+        transport_config: Optional[TransportConfig] = None,
+    ) -> None:
         """
         Initialize the HTTP client with authentication and endpoint settings.
 
@@ -81,6 +88,7 @@ class PipefyHttpClient:
             )
 
         self._base_url: str = base_url
+        self._transport_config: TransportConfig = transport_config or TransportConfig()
 
         self._headers: Dict[str, str] = {
             "Content-Type": "application/json",
@@ -149,31 +157,22 @@ class PipefyHttpClient:
         if variables:
             payload["variables"] = variables
 
-        try:
-            response = requests.post(
-                self._base_url, json=payload, headers=self._headers, timeout=timeout
-            )
-        except requests.Timeout as exc:
-            raise TimeoutRequestError(
-                message=str(exc),
-                class_name=class_name,
-                method_name=method_name,
-                cause=exc,
-            ) from exc
-        except requests.ConnectionError as exc:
-            raise ConnectionRequestError(
-                message=str(exc),
-                class_name=class_name,
-                method_name=method_name,
-                cause=exc,
-            ) from exc
-        except requests.RequestException as exc:
-            raise RequestError(
-                message=str(exc),
-                class_name=class_name,
-                method_name=method_name,
-                cause=exc,
-            ) from exc
+        # A custom transport timeout is expected to override SDK-level defaults
+        # such as the legacy 60-second service timeouts.
+        request_timeout = (
+            self._transport_config.timeout
+            if self._transport_config.timeout != 30
+            else timeout
+        )
+        verify = self._transport_config.resolveVerifyValue()
+
+        response = self._postWithRetry(
+            payload=payload,
+            request_timeout=request_timeout,
+            verify=verify,
+            class_name=class_name,
+            method_name=method_name,
+        )
 
         json_response: Dict[str, Any] = self._parseResponse(response)
 
@@ -182,6 +181,75 @@ class PipefyHttpClient:
         self._handleErrors(json_response)
 
         return json_response
+
+    @property
+    def transport_config(self) -> TransportConfig:
+        """
+        Expose the effective transport configuration bound to this client.
+        """
+        return self._transport_config
+
+    def _postWithRetry(
+        self,
+        payload: Dict[str, Any],
+        request_timeout: int,
+        verify: bool | str,
+        class_name: str,
+        method_name: str,
+    ) -> requests.Response:
+        """
+        Execute the transport request with conservative retry behavior.
+        """
+        max_attempts = 1 + max(0, self._transport_config.max_retries)
+        delay_seconds = max(0.0, self._transport_config.retry_delay_seconds)
+        backoff_multiplier = max(1.0, self._transport_config.retry_backoff_multiplier)
+
+        last_exc: Exception | None = None
+
+        for attempt_index in range(max_attempts):
+            try:
+                return requests.post(
+                    self._base_url,
+                    json=payload,
+                    headers=self._headers,
+                    timeout=request_timeout,
+                    verify=verify,
+                )
+            except requests.Timeout as exc:
+                last_exc = TimeoutRequestError(
+                    message=str(exc),
+                    class_name=class_name,
+                    method_name=method_name,
+                    cause=exc,
+                )
+            except requests.ConnectionError as exc:
+                last_exc = ConnectionRequestError(
+                    message=str(exc),
+                    class_name=class_name,
+                    method_name=method_name,
+                    cause=exc,
+                )
+            except requests.RequestException as exc:
+                raise RequestError(
+                    message=str(exc),
+                    class_name=class_name,
+                    method_name=method_name,
+                    cause=exc,
+                ) from exc
+
+            if attempt_index >= max_attempts - 1:
+                assert last_exc is not None
+                raise last_exc
+
+            if delay_seconds > 0:
+                time.sleep(delay_seconds)
+                delay_seconds *= backoff_multiplier
+
+        raise RequestError(
+            message="Unexpected transport retry state",
+            class_name=class_name,
+            method_name=method_name,
+        )
 
     # ============================================================
     # Helper Methods

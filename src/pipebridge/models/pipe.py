@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 from pipebridge.exceptions import RequestError
 from pipebridge.models.base import BaseModel
 from pipebridge.models.phase import Phase
+from pipebridge.models.phaseField import PhaseField
 from pipebridge.models.label import Label
 from pipebridge.models.user import User
 
@@ -31,6 +32,8 @@ class Pipe(BaseModel):
     - ``hasPhase(...)``
     - ``requirePhase(...)``
     - ``iterPhases()``
+    - ``getStartFormField(...)``
+    - ``iterStartFormFields()``
     - ``getLabel(...)``
     - ``requireLabel(...)``
     - ``iterLabels()``
@@ -58,6 +61,7 @@ class Pipe(BaseModel):
         name: Optional[str] = None,
         cards_count: int = 0,
         organization_id: Optional[str] = None,
+        start_form_fields: Optional[List[PhaseField]] = None,
         phases: Optional[List[Phase]] = None,
         labels: Optional[List[Label]] = None,
         users: Optional[List[User]] = None,
@@ -79,6 +83,7 @@ class Pipe(BaseModel):
         # ============================================================
         # INTERNAL STORAGE
         # ============================================================
+        self._start_form_fields: List[PhaseField] = start_form_fields or []
         self._phases: List[Phase] = phases or []
         self._labels: List[Label] = labels or []
         self._users: List[User] = users or []
@@ -86,6 +91,10 @@ class Pipe(BaseModel):
         # ============================================================
         # FAST ACCESS MAPS (O(1))
         # ============================================================
+        self.start_form_fields_map: Dict[str, PhaseField] = {
+            field.id: field for field in self._start_form_fields if field and field.id
+        }
+
         self.phases_map: Dict[str, Phase] = {
             phase.id: phase for phase in self._phases if phase and phase.id
         }
@@ -142,6 +151,20 @@ class Pipe(BaseModel):
             cards_count: int = int(data.get("cards_count") or 0)
 
             # ============================================================
+            # START FORM FIELDS
+            # ============================================================
+            start_form_fields_data: List[Any] = data.get("start_form_fields") or []
+            start_form_fields: List[PhaseField] = []
+
+            for item in start_form_fields_data:
+                try:
+                    if item:
+                        start_form_fields.append(PhaseField.fromDict(item))
+                except Exception as exc:
+                    parse_errors.append(f"Start form field parse error: {str(exc)}")
+                    continue
+
+            # ============================================================
             # PHASES
             # ============================================================
             phases_data: List[Any] = data.get("phases") or []
@@ -191,6 +214,7 @@ class Pipe(BaseModel):
                 name=name,
                 organization_id=organization_id,
                 cards_count=cards_count,
+                start_form_fields=start_form_fields,
                 phases=phases,
                 labels=labels,
                 users=users,
@@ -208,6 +232,15 @@ class Pipe(BaseModel):
     # ============================================================
     # PROPERTIES
     # ============================================================
+
+    @property
+    def start_form_fields(self) -> List[PhaseField]:
+        """
+        Retrieve all start form fields associated with the pipe.
+
+        :return: list[PhaseField] = Start form fields
+        """
+        return self._start_form_fields
 
     @property
     def phases(self) -> List[Phase]:
@@ -264,6 +297,54 @@ class Pipe(BaseModel):
     # HELPERS (O(1) ACCESS)
     # ============================================================
 
+    def getStartFormField(self, field_id: str) -> Optional[PhaseField]:
+        """
+        Retrieve a start form field by its identifier.
+
+        :param field_id: str = Field identifier
+
+        :return: PhaseField | None = Start form field when found
+        """
+        return self.start_form_fields_map.get(field_id)
+
+    def hasStartFormField(self, field_id: str) -> bool:
+        """
+        Check whether a field exists in the pipe start form.
+
+        :param field_id: str = Field identifier
+
+        :return: bool = Whether the field exists
+        """
+        return self.getStartFormField(field_id) is not None
+
+    def requireStartFormField(self, field_id: str) -> PhaseField:
+        """
+        Retrieve a start form field and fail when it does not exist.
+
+        :param field_id: str = Field identifier
+
+        :return: PhaseField = Requested field
+
+        :raises RequestError:
+            When the field does not exist in the start form
+        """
+        field = self.getStartFormField(field_id)
+        if field is None:
+            raise RequestError(
+                f"Class: {self.__class__.__name__}\n"
+                f"Method: requireStartFormField\n"
+                f"Error: Start form field '{field_id}' does not exist in pipe '{self.id}'"
+            )
+        return field
+
+    def iterStartFormFields(self) -> List[PhaseField]:
+        """
+        Return all start form fields as an ordered list.
+
+        :return: list[PhaseField] = Start form fields
+        """
+        return list(self.start_form_fields)
+
     def getPhase(self, phase_id: str) -> Optional[Phase]:
         """
         Retrieve a phase by its identifier.
@@ -319,24 +400,82 @@ class Pipe(BaseModel):
 
     def iterAllFields(self) -> List[Any]:
         """
-        Return all phase fields from the pipe in a flat list.
+        Return all start form and phase fields from the pipe in a flat list.
 
-        :return: list[Any] = All fields across phases
+        :return: list[Any] = All fields across start form and phases
         """
-        fields: List[Any] = []
+        fields: List[Any] = list(self.start_form_fields)
         for phase in self.phases:
             fields.extend(phase.iterFields())
         return fields
 
+    def getField(self, field_id: str) -> Optional[PhaseField]:
+        """
+        Retrieve a field from the pipe schema regardless of origin.
+
+        Lookup order:
+
+        1. start form fields
+        2. phase fields
+
+        :param field_id: str = Field identifier
+
+        :return: PhaseField | None = Matching field when found
+        """
+        start_form_field = self.getStartFormField(field_id)
+        if start_form_field is not None:
+            return start_form_field
+
+        for phase in self.phases:
+            field = phase.getField(field_id)
+            if field is not None:
+                return field
+
+        return None
+
+    def hasField(self, field_id: str) -> bool:
+        """
+        Check whether a field exists anywhere in the pipe schema.
+
+        :param field_id: str = Field identifier
+
+        :return: bool = Whether the field exists
+        """
+        return self.getField(field_id) is not None
+
+    def requireField(self, field_id: str) -> PhaseField:
+        """
+        Retrieve a field from the pipe schema and fail when missing.
+
+        :param field_id: str = Field identifier
+
+        :return: PhaseField = Requested field
+
+        :raises RequestError:
+            When the field does not exist in the pipe schema
+        """
+        field = self.getField(field_id)
+        if field is None:
+            raise RequestError(
+                f"Class: {self.__class__.__name__}\n"
+                f"Method: requireField\n"
+                f"Error: Field '{field_id}' does not exist in pipe '{self.id}'"
+            )
+        return field
+
     def getFieldsByType(self, field_type: str) -> List[Any]:
         """
-        Retrieve all fields across all phases matching a given type.
+        Retrieve all start form and phase fields matching a given type.
 
         :param field_type: str = Field type
 
-        :return: list[Any] = Matching fields across phases
+        :return: list[Any] = Matching fields across start form and phases
         """
-        fields: List[Any] = []
+        fields: List[Any] = [
+            field
+            for field in self.start_form_fields
+            if field and field.type == field_type
+        ]
         for phase in self.phases:
             fields.extend(phase.getFieldsByType(field_type))
         return fields

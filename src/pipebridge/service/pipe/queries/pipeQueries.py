@@ -45,12 +45,36 @@ class PipeQueries:
                 id
             }
 
+            labels {
+                id
+                name
+                color
+            }
+
+            users {
+                id
+                name
+                email
+            }
+
+            start_form_fields {
+                id
+                uuid
+                internal_id
+                label
+                type
+                required
+                description
+                options
+            }
+
             phases {
                 id
                 name
                 fields {
                     id
                     uuid
+                    internal_id
                     label
                     type
                     required

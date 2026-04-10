@@ -13,8 +13,6 @@ from pipebridge.exceptions import (
     getExceptionContext,
 )
 from pipebridge.models.pipe import Pipe
-from pipebridge.models.phase import Phase
-from pipebridge.service.phase.phaseService import PhaseService
 from pipebridge.service.pipe.queries.pipeQueries import PipeQueries
 
 
@@ -39,7 +37,6 @@ class PipeService:
         :param client: PipefyHttpClient = Shared HTTP client
         """
         self._client: PipefyHttpClient = client
-        self._phase_service: PhaseService = PhaseService(client)
 
     # ============================================================
     # RAW
@@ -101,8 +98,8 @@ class PipeService:
         Retrieve all configured phases and fields for a pipe as a model.
 
         This method is intended for field discovery and schema inspection.
-        It returns the canonical Pipe model, with each phase populated with
-        its field metadata.
+        It returns the canonical Pipe model, with phase fields and start form
+        fields populated from a single pipe schema catalog query.
 
         :param pipe_id: str = Pipe identifier
 
@@ -122,44 +119,9 @@ class PipeService:
         class_name, method_name = getExceptionContext(self)
 
         try:
-            pipe: Pipe = self.getPipeModel(
+            return self.getPipeModel(
                 pipe_id=pipe_id,
-                query_body="""
-                    id
-                    name
-                    cards_count
-
-                    organization {
-                        id
-                    }
-
-                    users {
-                        id
-                        name
-                        email
-                    }
-
-                    phases {
-                        id
-                        name
-                    }
-                """,
-            )
-
-            enriched_phases = [
-                self._phase_service.getPhaseModel(phase.id)
-                for phase in pipe.phases
-                if isinstance(phase, Phase) and phase.id
-            ]
-
-            return Pipe(
-                id=pipe.id,
-                name=pipe.name,
-                cards_count=pipe.cards_count,
-                organization_id=pipe.organization_id,
-                phases=enriched_phases,
-                labels=pipe.labels,
-                users=pipe.users,
+                query_body=PipeQueries.getFieldCatalogBody(),
             )
 
         except PipefyError:

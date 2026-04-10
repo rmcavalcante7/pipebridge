@@ -149,6 +149,7 @@ class PhaseService:
                     description
                     options
                     uuid
+                    internal_id
                 }
             """
 

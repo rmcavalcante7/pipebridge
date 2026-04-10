@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,45 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "integration: tests that exercise the real Pipefy API and require credentials",
+    )
+
+
+def _build_live_pipefy_api_from_env() -> Any:
+    """
+    Build a real Pipefy facade from environment credentials.
+
+    :return: PipeBridge = Initialized SDK facade
+
+    :raises pytest.skip:
+        When live credentials are unavailable
+    """
+    from pipebridge import PipeBridge
+
+    base_url = os.getenv("PIPEFY_BASE_URL", "https://app.pipefy.com/queries")
+    token = os.getenv("PIPEFY_API_TOKEN")
+    if token:
+        return PipeBridge(token=token, base_url=base_url)
+
+    pytest.skip(
+        "Live Pipefy credentials are unavailable. Define PIPEFY_API_TOKEN "
+        "and optionally PIPEFY_BASE_URL to run integration tests."
+    )
+
+
+def _build_live_pipefy_client_from_env() -> Any:
+    """
+    Build a real Pipefy HTTP client from environment credentials.
+    """
+    from pipebridge import PipefyHttpClient
+
+    base_url = os.getenv("PIPEFY_BASE_URL", "https://app.pipefy.com/queries")
+    token = os.getenv("PIPEFY_API_TOKEN")
+    if token:
+        return PipefyHttpClient(auth_key=token, base_url=base_url)
+
+    pytest.skip(
+        "Live Pipefy credentials are unavailable. Define PIPEFY_API_TOKEN "
+        "and optionally PIPEFY_BASE_URL to run integration tests."
     )
 
 
@@ -75,14 +115,44 @@ def live_pipefy_api() -> Any:
     :raises pytest.skip:
         When live credentials are not available
     """
-    from pipebridge import PipeBridge
+    return _build_live_pipefy_api_from_env()
 
-    base_url = os.getenv("PIPEFY_BASE_URL", "https://app.pipefy.com/queries")
-    token = os.getenv("PIPEFY_API_TOKEN")
-    if token:
-        return PipeBridge(token=token, base_url=base_url)
 
-    pytest.skip(
-        "Live Pipefy credentials are unavailable. Define PIPEFY_API_TOKEN "
-        "and optionally PIPEFY_BASE_URL to run integration tests."
+@pytest.fixture(scope="session")
+def live_card_lifecycle_context() -> Any:
+    """
+    Create and exercise a full destructive live lifecycle on one created card only.
+    """
+    if os.getenv("PIPEBRIDGE_ENABLE_DESTRUCTIVE_CREATE_TESTS") != "1":
+        pytest.skip(
+            "Set PIPEBRIDGE_ENABLE_DESTRUCTIVE_CREATE_TESTS=1 to run destructive "
+            "live create/move tests."
+        )
+
+    from tests.live_examples import (
+        DEFAULT_LIVE_PIPE_ID,
+        build_live_card_lifecycle_context,
+        should_delete_created_live_card,
     )
+
+    api = _build_live_pipefy_api_from_env()
+    client = _build_live_pipefy_client_from_env()
+    pipe_id = os.getenv("PIPEBRIDGE_TEST_PIPE_ID", DEFAULT_LIVE_PIPE_ID)
+    reference_card_id = os.getenv("PIPEBRIDGE_REFERENCE_CARD_ID") or None
+
+    context = build_live_card_lifecycle_context(
+        api=api,
+        client=client,
+        pipe_id=pipe_id,
+        reference_card_id=reference_card_id,
+    )
+    yield context
+
+    if should_delete_created_live_card():
+        try:
+            api.cards.delete(context.created_card_id)
+        except Exception as exc:
+            warnings.warn(
+                f"Failed to delete created live test card '{context.created_card_id}': {exc}",
+                RuntimeWarning,
+            )

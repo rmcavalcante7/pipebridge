@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.1.3">
-    <img src="https://img.shields.io/badge/tag-v0.1.3-2563EB" alt="Tag v0.1.3" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.2.0">
+    <img src="https://img.shields.io/badge/tag-v0.2.0-2563EB" alt="Tag v0.2.0" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -27,6 +27,12 @@ Instead of wiring raw GraphQL queries, manual validation, and brittle payload ha
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework designed for maintainable Pipefy automation.
 
+New in `v0.2.0`:
+
+- start form schema coverage in the pipe catalog
+- safe card creation against start form fields
+- transport-level TLS and retry configuration
+
 Quick links:
 
 - Documentation: https://rmcavalcante7.github.io/pipebridge/
@@ -40,14 +46,16 @@ Quick links:
 - [Quick Start](#quick-start)
 - [Public Surface](#public-surface)
 - [Core Capabilities](#core-capabilities)
+- [Start Form Semantics](#start-form-semantics)
 - [Full Structure Traversal](#full-structure-traversal)
 - [Extensibility](#extensibility)
 - [Models and Semantic Navigation](#models-and-semantic-navigation)
+- [Transport Configuration](#transport-configuration)
 - [Schema Cache](#schema-cache)
 - [Ready-to-Use Examples](#ready-to-use-examples)
 - [HTML Documentation](#html-documentation)
 - [Tests](#tests)
-- [Current V1 Status](#current-v1-status)
+- [Current Status](#current-status)
 - [Vision](#vision)
 - [Author](#author)
 - [License](#license)
@@ -66,9 +74,12 @@ PipeBridge addresses that with:
 
 - a simple public facade
 - typed models with semantic navigation
+- start form-aware schema discovery
+- safe card creation
 - safe field updates
 - safe phase moves
 - file upload and download flows
+- transport-level TLS and retry controls
 - schema caching
 - extensibility through rules, handlers, policies, and steps
 
@@ -126,6 +137,7 @@ Sub-levels when applicable:
 Objects also exposed at the package top level:
 
 - `PipefyHttpClient`
+- `TransportConfig`
 - `CardService`
 - `FileService`
 - `PipeService`
@@ -146,25 +158,56 @@ phase = api.phases.get("456")
 pipe = api.pipes.get("789")
 ```
 
-### 2. Pipe schema catalog
+### 2. Pipe schema catalog and start form coverage
 
 ```python
 pipe = api.pipes.getFieldCatalog("789")
 
+for field in pipe.iterStartFormFields():
+    print(field.id, field.internal_id, field.type, field.required)
+
 for phase in pipe.iterPhases():
     print(phase.name)
     for field in phase.iterFields():
-        print(field.id, field.type, field.options)
+        print(field.id, field.internal_id, field.type, field.options)
 ```
 
 This catalog is important for:
 
 - field discovery
+- start form discovery
 - update validation
 - type support
 - schema caching
+- internal field mapping via `internal_id`
 
-### 3. Safe card field updates
+### 3. Safe card creation from start form
+
+```python
+result = api.cards.createSafely(
+  pipe_id="789",
+  title="New request",
+  fields={
+    "oc": "12345",
+    "request_type": "Purchase",
+  },
+)
+```
+
+This path is intended for users who prefer a more conservative entry flow.
+
+It validates:
+
+- whether the field belongs to the pipe start form
+- whether required start form fields were filled
+- whether option values are valid when the field exposes options
+
+Important note:
+
+- start-form connector fields must receive connected record ids, not display labels
+- a full tenant-specific example of create, move, and update is available in `useCases/start_form_create_move_fill.py`
+
+### 4. Safe card field updates
 
 ```python
 from pipebridge import CardUpdateConfig
@@ -206,7 +249,7 @@ Important note:
 
 - `connector` is out of scope for V1 by architectural decision
 
-### 4. Safe phase moves
+### 5. Safe phase moves
 
 ```python
 from pipebridge import CardMoveConfig
@@ -225,7 +268,7 @@ This flow validates:
 - whether the transition is allowed by the current phase configuration
 - whether required fields in the destination phase are filled
 
-### 5. File upload and download
+### 6. File upload and download
 
 ```python
 from pipebridge import FileUploadRequest, FileDownloadRequest, UploadConfig
@@ -249,6 +292,43 @@ download_request = FileDownloadRequest(
 
 files = api.files.downloadAllAttachments(download_request)
 ```
+
+### 7. Transport configuration
+
+```python
+from pipebridge import PipeBridge, TransportConfig
+
+api = PipeBridge(
+  token="YOUR_TOKEN",
+  base_url="https://app.pipefy.com/queries",
+  transport_config=TransportConfig(
+    timeout=45,
+    verify_ssl=True,
+    max_retries=2,
+    retry_delay_seconds=1.0,
+    retry_backoff_multiplier=2.0,
+  ),
+)
+```
+
+This transport layer supports:
+
+- global request timeout override
+- TLS verification control
+- custom CA bundle path for corporate environments
+- conservative retry for transient timeout and connection errors
+
+## Start Form Semantics
+
+PipeBridge now models the start form as part of the pipe schema, but not as a regular phase.
+
+That distinction matters because:
+
+- Pipefy exposes `start_form_fields` at the pipe level
+- card creation enters the pipe through the start form
+- later navigation and movement still happen through regular phases
+
+This keeps the SDK aligned with the platform instead of introducing a fake phase abstraction.
 
 ## Full Structure Traversal
 
@@ -436,6 +516,34 @@ print(phase.isFieldRequired("priority"))
 pipe = api.pipes.getFieldCatalog("789")
 for field in pipe.getFieldsByType("select"):
     print(field.id, field.label)
+
+for start_form_field in pipe.iterStartFormFields():
+    print(start_form_field.id, start_form_field.internal_id)
+```
+
+## Transport Configuration
+
+`TransportConfig` is the public transport-layer configuration object exposed at the top level of the package.
+
+Use it when you need:
+
+- timeout control across SDK operations
+- custom certificate bundles in corporate networks
+- temporary TLS relaxation in controlled environments
+- bounded retries for transient transport failures
+
+```python
+from pipebridge import PipefyHttpClient, TransportConfig
+
+client = PipefyHttpClient(
+  auth_key="YOUR_TOKEN",
+  base_url="https://app.pipefy.com/queries",
+  transport_config=TransportConfig(
+    timeout=30,
+    ca_bundle_path="/path/to/company-ca.pem",
+    max_retries=1,
+  ),
+)
 ```
 
 ## Schema Cache
@@ -480,6 +588,7 @@ It contains executable examples for:
 
 - pipe field catalog inspection
 - cascading inspection across pipes, phases, and cards
+- start form creation followed by safe move and phase filling
 - card field updates
 - updates with extra rules
 - custom handler
@@ -560,9 +669,45 @@ $env:PIPEFY_BASE_URL="https://app.pipefy.com/queries"
 python -m pytest tests/integration -v
 ```
 
-## Current V1 Status
+For the destructive live create/move/update battery:
 
-V1 is complete with:
+```powershell
+$env:PIPEFY_API_TOKEN="YOUR_TOKEN"
+$env:PIPEFY_BASE_URL="https://app.pipefy.com/queries"
+$env:PIPEBRIDGE_ENABLE_DESTRUCTIVE_CREATE_TESTS="1"
+$env:PIPEBRIDGE_TEST_PIPE_ID="307064875"
+$env:PIPEBRIDGE_REFERENCE_CARD_ID="1330664077"  # optional, read-only reference
+$env:PIPEBRIDGE_DELETE_CREATED_TEST_CARD="1"    # default behavior
+python -m pytest tests/integration/test_card_service.py tests/integration/test_card_move_flow.py tests/integration/test_card_update_flow.py -v
+```
+
+Notes for the destructive live battery:
+
+- it creates one new card per test session
+- all live mutations in that battery run only against the created card
+- the optional reference card is read-only and is used only to copy values when helpful
+- when no reference card is provided, the helpers generate valid values by field type
+- teardown can delete only the created card when `PIPEBRIDGE_DELETE_CREATED_TEST_CARD` is enabled
+
+## Current Status
+
+Current release highlights:
+
+- coherent public facade
+- start form-aware pipe schema catalog
+- safe card creation via `createSafely(...)`
+- transport configuration via `TransportConfig`
+- TLS and retry controls at the HTTP boundary
+- card update flow
+- safe move flow
+- upload/download flow
+- semantic exceptions
+- schema cache
+- structured pytest suite
+- end-user usage examples
+- destructive live test battery that creates, updates, moves, validates, and optionally deletes only the card created for that run
+
+Foundational capabilities already in place:
 
 - coherent public facade
 - card update flow
@@ -573,10 +718,11 @@ V1 is complete with:
 - structured pytest suite
 - end-user usage examples
 
-Out of scope for V1:
+Still out of scope:
 
 - `connector` as a complete relational operation
 - public `steps` extensibility in updates and moves
+- administrative operations for start form configuration
 
 ## Vision
 

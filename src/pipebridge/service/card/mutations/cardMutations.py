@@ -26,12 +26,13 @@ class CardMutations:
 
         :return: str = GraphQL mutation
         """
+        serialized_fields_payload = CardMutations._toGraphQLInputLiteral(fields_payload)
         return f"""
         mutation {{
             createCard(input: {{
                 pipe_id: {pipe_id},
-                title: "{title}",
-                fields_attributes: {json.dumps(fields_payload)}
+                title: {json.dumps(title)},
+                fields_attributes: {serialized_fields_payload}
             }}) {{
                 card {{
                     id
@@ -195,6 +196,26 @@ class CardMutations:
         if isinstance(value, (list, dict)):
             return json.dumps(value)
         return json.dumps(str(value))
+
+    @staticmethod
+    def _toGraphQLInputLiteral(value: Any) -> str:
+        """
+        Serialize Python values into GraphQL input syntax.
+
+        This differs from JSON because object keys must not be quoted.
+        """
+        if isinstance(value, dict):
+            items = ", ".join(
+                f"{key}: {CardMutations._toGraphQLInputLiteral(item)}"
+                for key, item in value.items()
+            )
+            return f"{{{items}}}"
+        if isinstance(value, list):
+            items = ", ".join(
+                CardMutations._toGraphQLInputLiteral(item) for item in value
+            )
+            return f"[{items}]"
+        return CardMutations._toGraphQLLiteral(value)
 
     @staticmethod
     def updateCardAttachmentFieldValue(

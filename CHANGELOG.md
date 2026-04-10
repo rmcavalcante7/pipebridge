@@ -12,4 +12,19 @@ The format follows this convention:
 
 ## [Unreleased]
 
-- Professional publishing, CI/CD, and documentation structure prepared for V1.
+- No pending entries.
+
+## [0.2.0] - 2026-04-10
+
+- `feat:` added `TransportConfig` as a public transport-layer configuration object
+- `feat:` added TLS/SSL controls with `verify_ssl` and `ca_bundle_path`
+- `feat:` added conservative transport retry for timeout and connection failures
+- `feat:` expanded pipe field catalog coverage with `start_form_fields` and `internal_id`
+- `feat:` added safe card creation through `api.cards.createSafely(...)`
+- `fix:` corrected `createCard` mutation serialization to use valid GraphQL input for `fields_attributes`
+- `fix:` ensured service-level operations honor transport timeout overrides
+- `fix:` aligned `createSafely(...)` option validation with `InvalidFieldOptionError`
+- `docs:` updated README and examples to document start form semantics and connector record id behavior
+- `docs:` documented the destructive live integration battery that creates one card, mutates only that card, and can clean it up safely
+- `test:` added unit coverage for transport configuration, retry behavior, create mutation serialization, and safe start form creation
+- `test:` hardened the live integration battery to propagate one created card through create, update, move, destination update, and optional delete

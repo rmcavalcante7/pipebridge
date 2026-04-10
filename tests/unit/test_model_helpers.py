@@ -98,14 +98,62 @@ def test_pipe_semantic_helpers() -> None:
     pipe = Pipe(
         id="pipe-1",
         name="Pipe 1",
+        start_form_fields=[
+            PhaseField(
+                id="oc",
+                label="Order Code",
+                type="short_text",
+                required=True,
+                internal_id="start_form.oc",
+            )
+        ],
         phases=[phase],
         labels=card.labels,
         users=card.assignees,
     )
 
     assert pipe.hasPhase("phase-1") is True
+    assert pipe.hasStartFormField("oc") is True
+    assert pipe.requireStartFormField("oc").internal_id == "start_form.oc"
+    assert pipe.getField("oc") is not None
+    assert pipe.requireField("oc").label == "Order Code"
     assert pipe.requirePhase("phase-1").name == "Phase 1"
     assert pipe.requireLabel("label-1").name == "Important"
     assert pipe.requireUser("user-1").name == "Rafael"
-    assert len(list(pipe.iterAllFields())) == 2
-    assert [field.id for field in pipe.getFieldsByType("short_text")] == ["name"]
+    assert len(list(pipe.iterStartFormFields())) == 1
+    assert len(list(pipe.iterAllFields())) == 3
+    assert [field.id for field in pipe.getFieldsByType("short_text")] == ["oc", "name"]
+
+
+@pytest.mark.unit
+def test_pipe_from_dict_parses_start_form_fields() -> None:
+    """
+    Validate parsing of start form fields from pipe catalog data.
+    """
+    pipe = Pipe.fromDict(
+        {
+            "id": "pipe-1",
+            "name": "Pipe 1",
+            "organization": {"id": "org-1"},
+            "start_form_fields": [
+                {
+                    "id": "oc",
+                    "uuid": "uuid-oc",
+                    "internal_id": "start_form.oc",
+                    "label": "Order Code",
+                    "type": "short_text",
+                    "required": True,
+                    "description": "Internal order code",
+                    "options": [],
+                }
+            ],
+            "phases": [],
+        }
+    )
+
+    field = pipe.requireStartFormField("oc")
+
+    assert pipe.organization_id == "org-1"
+    assert field.uuid == "uuid-oc"
+    assert field.internal_id == "start_form.oc"
+    assert field.description == "Internal order code"

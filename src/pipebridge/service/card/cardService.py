@@ -19,6 +19,10 @@ from pipebridge.service.card.flows.move.cardMoveFlow import CardMoveFlow
 from pipebridge.service.card.flows.move.cardMoveRequest import CardMoveRequest
 from pipebridge.service.card.mutations.cardMutations import CardMutations
 from pipebridge.service.card.queries.cardQueries import CardQueries
+from pipebridge.exceptions.validation.field import (
+    InvalidFieldOptionError,
+    RequiredFieldError,
+)
 from pipebridge.service.phase.phaseService import PhaseService
 from pipebridge.service.pipe.cache.pipeSchemaCache import PipeSchemaCache
 from pipebridge.service.pipe.pipeService import PipeService
@@ -202,6 +206,103 @@ class CardService:
                 cause=exc,
                 retryable=getattr(exc, "retryable", False),
             ) from exc
+
+    def createCardSafely(
+        self, pipe_id: str, title: str, fields: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new card after validating input against the pipe start form schema.
+
+        :param pipe_id: str = Pipe identifier
+        :param title: str = Card title
+        :param fields: dict[str, Any] | None = Start form field values
+
+        :return: dict = Raw API response containing created card metadata
+
+        :raises ValidationError:
+            When the pipe, title, or field payload is invalid
+        :raises RequiredFieldError:
+            When a required start form field is missing or empty
+        :raises InvalidFieldOptionError:
+            When a start form option value is invalid
+        :raises RequestError:
+            When request execution fails
+        """
+        class_name, method_name = getExceptionContext(self)
+
+        if not pipe_id:
+            raise ValidationError(
+                message="pipe_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        if not title:
+            raise ValidationError(
+                message="title cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        if fields is not None and not isinstance(fields, dict):
+            raise ValidationError(
+                message="fields must be a dictionary",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        fields = fields or {}
+        pipe_schema = self._pipe_schema_cache.getOrLoad(
+            pipe_id,
+            loader=lambda: self._pipe_service.getPipeFieldCatalog(pipe_id),
+        )
+
+        start_form_fields = pipe_schema.iterStartFormFields()
+        start_form_field_map = {field.id: field for field in start_form_fields}
+
+        for field_id in fields:
+            if field_id not in start_form_field_map:
+                raise ValidationError(
+                    message=(
+                        f"Field '{field_id}' does not belong to the start form of pipe '{pipe_id}'"
+                    ),
+                    class_name=class_name,
+                    method_name=method_name,
+                )
+
+        for field in start_form_fields:
+            if not field.required:
+                continue
+
+            value = fields.get(field.id)
+            if value is None or value == "" or value == []:
+                raise RequiredFieldError(
+                    message=(
+                        f"Required start form field '{field.id}' is missing for pipe '{pipe_id}'"
+                    ),
+                    class_name=class_name,
+                    method_name=method_name,
+                )
+
+        for field_id, value in fields.items():
+            phase_field = start_form_field_map[field_id]
+            if phase_field.options and value is not None:
+                values_to_validate = value if isinstance(value, list) else [value]
+                invalid_options = [
+                    item
+                    for item in values_to_validate
+                    if item not in phase_field.options
+                ]
+                if invalid_options:
+                    raise InvalidFieldOptionError(
+                        message=(
+                            f"Field '{field_id}' contains invalid option(s): {invalid_options}"
+                        ),
+                        class_name=class_name,
+                        method_name=method_name,
+                    )
+
+        return self.createCard(pipe_id=pipe_id, title=title, fields=fields)
 
     def getRawCard(self, card_id: str, query_body: str) -> Dict[str, Any]:
         """

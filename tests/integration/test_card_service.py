@@ -8,8 +8,14 @@ from typing import Any
 
 import pytest
 
+from tests.live_examples import (
+    DEFAULT_CREATE_DESCRIPTION_VALUE,
+    DEFAULT_LIVE_PIPE_ID,
+    normalize_live_field_value,
+)
+
 CARD_ID = "1328390184"
-PIPE_ID = "307064875"
+PIPE_ID = DEFAULT_LIVE_PIPE_ID
 PHASE_ID = "342616255"
 
 
@@ -109,3 +115,25 @@ def test_card_list_by_phase_live(live_pipefy_api: Any) -> None:
     assert isinstance(cards, list)
     if cards:
         assert hasattr(cards[0], "id")
+
+
+@pytest.mark.integration
+def test_card_create_safely_live_example(
+    live_pipefy_api: Any, live_card_lifecycle_context: Any
+) -> None:
+    """
+    Validate the shared destructive start-form-created card.
+    """
+    created_card = live_pipefy_api.cards.get(
+        live_card_lifecycle_context.created_card_id
+    )
+
+    assert created_card.id == live_card_lifecycle_context.created_card_id
+    assert (
+        normalize_live_field_value(created_card.getFieldValue("copy_of_descri_o"))
+        == DEFAULT_CREATE_DESCRIPTION_VALUE
+    )
+    assert (
+        live_card_lifecycle_context.create_fields["copy_of_descri_o"]
+        == DEFAULT_CREATE_DESCRIPTION_VALUE
+    )

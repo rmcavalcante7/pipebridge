@@ -9,6 +9,7 @@ This module intentionally exposes a hybrid public surface:
 """
 
 from pipebridge.client.httpClient import PipefyHttpClient
+from pipebridge.client.transportConfig import TransportConfig
 from pipebridge.facade.pipefyFacade import PipeBridge
 from pipebridge.models.file.fileDownloadRequest import FileDownloadRequest
 from pipebridge.models.file.fileUploadRequest import FileUploadRequest
@@ -23,6 +24,7 @@ from pipebridge.service.pipe.pipeService import PipeService
 __all__ = [
     "PipeBridge",
     "PipefyHttpClient",
+    "TransportConfig",
     "CardService",
     "FileService",
     "PipeService",

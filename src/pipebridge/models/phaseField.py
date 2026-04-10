@@ -20,6 +20,7 @@ class PhaseField:
     :param required: bool = Whether field is required
     :param description: str | None = Field description
     :param uuid: str | None = Field UUID exposed by the API
+    :param internal_id: str | None = Field internal identifier exposed by the API
     """
 
     def __init__(
@@ -31,6 +32,7 @@ class PhaseField:
         description: Optional[str] = None,
         options: Optional[List[str]] = None,
         uuid: Optional[str] = None,
+        internal_id: Optional[str] = None,
     ) -> None:
         """
         Initialize phase field schema metadata.
@@ -42,6 +44,7 @@ class PhaseField:
         :param description: str | None = Field description
         :param options: list[str] | None = Configured field options
         :param uuid: str | None = Field UUID exposed by the API
+        :param internal_id: str | None = Field internal identifier exposed by the API
         """
         self.id: str = id
         self.label: Optional[str] = label
@@ -50,6 +53,7 @@ class PhaseField:
         self.description: Optional[str] = description
         self.options: List[str] = options or []
         self.uuid: Optional[str] = uuid
+        self.internal_id: Optional[str] = internal_id
 
     # ============================================================
     # Factory Methods
@@ -84,6 +88,7 @@ class PhaseField:
                 description=data.get("description"),
                 options=data.get("options", []),
                 uuid=data.get("uuid"),
+                internal_id=data.get("internal_id"),
             )
 
         except Exception as exc:

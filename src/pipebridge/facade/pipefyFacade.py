@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, List, Sequence
 
 from pipebridge.client.httpClient import PipefyHttpClient
+from pipebridge.client.transportConfig import TransportConfig
 from pipebridge.exceptions import getExceptionContext
 from pipebridge.models.file.fileUploadRequest import FileUploadRequest
 from pipebridge.models.pipe import Pipe
@@ -94,6 +95,25 @@ class CardsFacade:
             True
         """
         return self._service.createCard(pipe_id, title, fields)
+
+    def createSafely(
+        self, pipe_id: str, title: str, fields: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new card after validating the payload against start form schema.
+
+        :param pipe_id: str = Pipe identifier
+        :param title: str = Card title
+        :param fields: dict[str, Any] | None = Start form field values
+
+        :return: dict = Raw API response
+
+        :raises ValidationError:
+            When input or start form validation fails
+        :raises RequestError:
+            When a transport or API request fails
+        """
+        return self._service.createCardSafely(pipe_id, title, fields)
 
     def move(self, card_id: str, phase_id: str) -> Dict[str, Any]:
         """
@@ -850,6 +870,7 @@ class PipeBridge:
         token: str,
         base_url: str,
         pipe_schema_cache_ttl_seconds: int = 300,
+        transport_config: Optional[TransportConfig] = None,
     ) -> None:
         """
         Initialize Pipefy facade.
@@ -884,7 +905,11 @@ class PipeBridge:
             )
 
         try:
-            client = PipefyHttpClient(auth_key=token, base_url=base_url)
+            client = PipefyHttpClient(
+                auth_key=token,
+                base_url=base_url,
+                transport_config=transport_config,
+            )
 
             card_service = CardService(
                 client,
@@ -910,6 +935,7 @@ class PipeBridge:
             self.pipes.structured = PipesStructuredFacade(pipe_service)
 
             self.files = FilesFacade(file_service)
+            self.transport_config = client.transport_config
 
         except Exception as exc:
             raise PipefyInitializationError(str(exc)) from exc

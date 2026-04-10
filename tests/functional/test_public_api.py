@@ -14,6 +14,7 @@ from pipebridge import (
     FileDownloadRequest,
     FileUploadRequest,
     PipeBridge,
+    TransportConfig,
     UploadConfig,
 )
 
@@ -29,6 +30,28 @@ class _FakeCardsService:
     def updateFields(self, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(("updateFields", kwargs))
         return {"ok": True, "operation": "updateFields"}
+
+    def createCard(
+        self, pipe_id: str, title: str, fields: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        self.calls.append(
+            (
+                "createCard",
+                {"pipe_id": pipe_id, "title": title, "fields": fields},
+            )
+        )
+        return {"ok": True, "operation": "createCard"}
+
+    def createCardSafely(
+        self, pipe_id: str, title: str, fields: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        self.calls.append(
+            (
+                "createCardSafely",
+                {"pipe_id": pipe_id, "title": title, "fields": fields},
+            )
+        )
+        return {"ok": True, "operation": "createCardSafely"}
 
     def moveCardToPhaseSafely(self, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(("moveCardToPhaseSafely", kwargs))
@@ -69,6 +92,7 @@ def test_top_level_public_imports_are_usable() -> None:
     assert isinstance(UploadConfig(), UploadConfig)
     assert isinstance(CardUpdateConfig(), CardUpdateConfig)
     assert isinstance(CardMoveConfig(), CardMoveConfig)
+    assert isinstance(TransportConfig(), TransportConfig)
 
 
 @pytest.mark.functional
@@ -82,6 +106,16 @@ def test_cards_facade_delegates_update_and_move_operations() -> None:
 
     cards_facade = CardsFacade(fake_service)
 
+    create_result = cards_facade.create(
+        pipe_id="pipe-1",
+        title="Card",
+        fields={"name": "Rafael"},
+    )
+    create_safely_result = cards_facade.createSafely(
+        pipe_id="pipe-1",
+        title="Card",
+        fields={"name": "Rafael"},
+    )
     update_result = cards_facade.updateFields(
         card_id="card-1",
         fields={"name": "Rafael"},
@@ -96,9 +130,13 @@ def test_cards_facade_delegates_update_and_move_operations() -> None:
     stats = cards_facade.getSchemaCacheStats()
     entry_info = cards_facade.getSchemaCacheEntryInfo("pipe-1")
 
+    assert create_result["operation"] == "createCard"
+    assert create_safely_result["operation"] == "createCardSafely"
     assert update_result["operation"] == "updateFields"
     assert move_result["operation"] == "moveCardToPhaseSafely"
     assert stats == {"entries": 0}
     assert entry_info == {"pipe_id": "pipe-1"}
-    assert fake_service.calls[0][0] == "updateFields"
-    assert fake_service.calls[1][0] == "moveCardToPhaseSafely"
+    assert fake_service.calls[0][0] == "createCard"
+    assert fake_service.calls[1][0] == "createCardSafely"
+    assert fake_service.calls[2][0] == "updateFields"
+    assert fake_service.calls[3][0] == "moveCardToPhaseSafely"

@@ -4,7 +4,6 @@ import os
 import sys
 from datetime import datetime, UTC
 
-
 ROOT = os.path.abspath("..")
 SRC = os.path.abspath("../src")
 
