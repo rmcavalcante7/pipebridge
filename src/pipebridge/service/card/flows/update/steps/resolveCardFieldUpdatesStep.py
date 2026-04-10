@@ -52,6 +52,17 @@ class ResolveCardFieldUpdatesStep(BaseStep):
                 context.phase.getFieldType(field_id) if context.phase else None
             ) or context.card.getFieldType(field_id)
 
+            if not field_type and context.pipe_id is not None:
+                pipe_id = context.pipe_id
+                pipe = context.pipe_schema_cache.getOrLoad(
+                    pipe_id,
+                    loader=lambda: context.pipe_service.getPipeFieldCatalog(pipe_id),
+                )
+                pipe_field = pipe.getField(field_id)
+                if pipe_field is not None:
+                    field_type = pipe_field.type
+                    phase_field = phase_field or pipe_field
+
             if not field_type:
                 raise ValidationError(
                     message=f"Unable to determine field type for '{field_id}'",

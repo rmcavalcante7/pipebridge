@@ -14,6 +14,11 @@ The format follows this convention:
 
 - No pending entries.
 
+## [0.2.1] - 2026-04-10
+
+- `fix:` fallback field-type resolution in the high-level card update flow now consults the full pipe schema when the field is not present in the current phase or card payload
+- `test:` added unit coverage for updating start form fields that are absent from the loaded card fields
+
 ## [0.2.0] - 2026-04-10
 
 - `feat:` added `TransportConfig` as a public transport-layer configuration object
