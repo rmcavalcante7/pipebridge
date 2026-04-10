@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.2.3">
-    <img src="https://img.shields.io/badge/tag-v0.2.3-2563EB" alt="Tag v0.2.3" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.2.4">
+    <img src="https://img.shields.io/badge/tag-v0.2.4-2563EB" alt="Tag v0.2.4" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -15,7 +15,7 @@
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-1F2937" alt="License" />
   </a>
-  <img src="https://img.shields.io/badge/python-3.14-3776AB" alt="Python 3.14" />
+  <img src="https://img.shields.io/badge/python-3.12%2B-3776AB" alt="Python 3.12+" />
 </p>
 
 # PipeBridge
@@ -27,11 +27,12 @@ Instead of wiring raw GraphQL queries, manual validation, and brittle payload ha
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework designed for maintainable Pipefy automation.
 
-New in `v0.2.3`:
+New in `v0.2.4`:
 
 - start form schema coverage in the pipe catalog
 - safe card creation against start form fields
 - transport-level TLS and retry configuration
+- declared support for Python 3.12+
 
 Quick links:
 

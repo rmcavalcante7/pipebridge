@@ -14,6 +14,12 @@ The format follows this convention:
 
 - No pending entries.
 
+## [0.2.4] - 2026-04-10
+
+- `build:` relaxed the package metadata to support Python `>=3.12`
+- `ci:` updated automation workflows to run on Python 3.12+ instead of only 3.14
+- `docs:` updated the README runtime badge and release highlight for `v0.2.4`
+
 ## [0.2.3] - 2026-04-10
 
 - `docs:` updated the published README badge and release highlight so the PyPI page for `0.2.3` points to tag `v0.2.3`
