@@ -24,17 +24,6 @@ DEFAULT_CREATE_DESCRIPTION_VALUE = "Teste pipefy de cria\u00e7\u00e3o de card"
 
 
 @dataclass
-class ConnectedRepoInfo:
-    """
-    Metadata required to resolve connector values.
-    """
-
-    repo_type: str
-    repo_id: str
-    repo_name: str | None = None
-
-
-@dataclass
 class LiveCardLifecycleContext:
     """
     Shared result of the destructive live card lifecycle.
@@ -68,7 +57,6 @@ def build_live_card_lifecycle_context(
     """
     pipe = api.pipes.getFieldCatalog(pipe_id)
     reference_card = api.cards.get(reference_card_id) if reference_card_id else None
-    connected_repos = _load_start_form_connected_repos(api, pipe_id)
     assignee_name = _resolve_assignee_name(pipe, reference_card)
 
     create_title = (
@@ -78,9 +66,7 @@ def build_live_card_lifecycle_context(
     )
     create_fields = _build_start_form_fields(
         api=api,
-        client=client,
         pipe=pipe,
-        connected_repos=connected_repos,
         reference_card=reference_card,
         assignee_name=assignee_name,
     )
@@ -158,7 +144,6 @@ def build_live_card_lifecycle_context(
     current_phase = api.phases.get(created_phase_id)
     current_phase_update_fields = _build_phase_update_fields(
         api=api,
-        client=client,
         pipe=pipe,
         phase=current_phase,
         reference_card=reference_card,
@@ -189,7 +174,6 @@ def build_live_card_lifecycle_context(
         moved_phase = api.phases.get(move_destination_phase_id)
         destination_phase_update_fields = _build_phase_update_fields(
             api=api,
-            client=client,
             pipe=pipe,
             phase=moved_phase,
             reference_card=reference_card,
@@ -239,38 +223,6 @@ def normalize_live_field_value(value: Any) -> Any:
     Normalize live field values so assertions can compare API payloads safely.
     """
     return _normalize_reference_value(value)
-
-
-def _load_start_form_connected_repos(
-    api: Any, pipe_id: str
-) -> dict[str, ConnectedRepoInfo]:
-    query_body = """
-        id
-        start_form_fields {
-            id
-            type
-            connected_repo {
-                __typename
-                ... on Pipe { id name }
-                ... on Table { id name }
-            }
-        }
-    """
-    raw = api.pipes.raw.get(pipe_id, query_body)
-    field_entries = raw.get("data", {}).get("pipe", {}).get("start_form_fields", [])
-    result: dict[str, ConnectedRepoInfo] = {}
-
-    for entry in field_entries:
-        field_id = entry.get("id")
-        repo = entry.get("connected_repo")
-        if field_id and isinstance(repo, dict) and repo.get("id"):
-            result[field_id] = ConnectedRepoInfo(
-                repo_type=str(repo.get("__typename")),
-                repo_id=str(repo.get("id")),
-                repo_name=repo.get("name"),
-            )
-
-    return result
 
 
 def _load_allowed_transitions(api: Any, phase_id: str) -> list[dict[str, str]]:
@@ -326,27 +278,25 @@ def _resolve_assignee_name(pipe: Any, reference_card: Any | None) -> str:
 
 def _build_start_form_fields(
     api: Any,
-    client: PipefyHttpClient,
     pipe: Any,
-    connected_repos: dict[str, ConnectedRepoInfo],
     reference_card: Any | None,
     assignee_name: str,
 ) -> dict[str, Any]:
     fields: dict[str, Any] = {}
 
     for field in pipe.iterStartFormFields():
-        reference_value = None
-        if reference_card is not None and reference_card.hasField(field.id):
-            reference_value = reference_card.getFieldValue(field.id)
+        reference_value = (
+            reference_card.getFieldValue(field.id)
+            if reference_card is not None
+            else None
+        )
 
         value = _resolve_field_value(
             api=api,
-            client=client,
             pipe=pipe,
             field=field,
             reference_value=reference_value,
             assignee_name=assignee_name,
-            connected_repo=connected_repos.get(field.id),
         )
 
         if value is None and field.required:
@@ -361,7 +311,6 @@ def _build_start_form_fields(
 
 def _build_phase_update_fields(
     api: Any,
-    client: PipefyHttpClient,
     pipe: Any,
     phase: Any,
     reference_card: Any | None,
@@ -370,18 +319,18 @@ def _build_phase_update_fields(
     fields: dict[str, Any] = {}
 
     for field in phase.iterFields():
-        reference_value = None
-        if reference_card is not None and reference_card.hasField(field.id):
-            reference_value = reference_card.getFieldValue(field.id)
+        reference_value = (
+            reference_card.getFieldValue(field.id)
+            if reference_card is not None
+            else None
+        )
 
         value = _resolve_field_value(
             api=api,
-            client=client,
             pipe=pipe,
             field=field,
             reference_value=reference_value,
             assignee_name=assignee_name,
-            connected_repo=None,
         )
         if value is None:
             continue
@@ -392,12 +341,10 @@ def _build_phase_update_fields(
 
 def _resolve_field_value(
     api: Any,
-    client: PipefyHttpClient,
     pipe: Any,
     field: Any,
     reference_value: Any,
     assignee_name: str,
-    connected_repo: ConnectedRepoInfo | None,
 ) -> Any | None:
     field_type = str(field.type or "")
     normalized_reference = _normalize_reference_value(reference_value)
@@ -435,8 +382,8 @@ def _resolve_field_value(
     if field_type == "connector":
         return _resolve_connector_value(
             api=api,
-            client=client,
-            connected_repo=connected_repo,
+            pipe=pipe,
+            field=field,
             reference_value=normalized_reference,
         )
     if field_type == "attachment":
@@ -447,58 +394,34 @@ def _resolve_field_value(
 
 def _resolve_connector_value(
     api: Any,
-    client: PipefyHttpClient,
-    connected_repo: ConnectedRepoInfo | None,
+    pipe: Any,
+    field: Any,
     reference_value: Any,
 ) -> list[str] | None:
-    if connected_repo is None:
-        return None
-
     desired_titles: list[str] = []
     if isinstance(reference_value, list):
         desired_titles = [str(item) for item in reference_value if item]
     elif isinstance(reference_value, str) and reference_value:
         desired_titles = [reference_value]
 
-    if connected_repo.repo_type == "Pipe":
-        cards = api.cards.list(connected_repo.repo_id)
-        candidates = [
-            {"id": str(card.id), "title": str(card.title)}
-            for card in cards
-            if getattr(card, "id", None)
-        ]
-    elif connected_repo.repo_type == "Table":
-        query = f"""
-        query {{
-          table_records(table_id: "{connected_repo.repo_id}") {{
-            edges {{
-              node {{
-                id
-                title
-              }}
-            }}
-          }}
-        }}
-        """
-        raw = client.sendRequest(query)
-        candidates = [
-            {
-                "id": str(edge.get("node", {}).get("id")),
-                "title": str(edge.get("node", {}).get("title")),
-            }
-            for edge in raw.get("data", {}).get("table_records", {}).get("edges", [])
-            if edge.get("node", {}).get("id")
-        ]
-    else:
-        return None
-
     for desired in desired_titles:
-        for candidate in candidates:
-            if candidate["title"] == desired:
-                return [candidate["id"]]
+        try:
+            option = api.connectors.resolveOption(
+                pipe_id=pipe.id,
+                field_id=field.id,
+                title=desired,
+            )
+            return [option.id]
+        except ValidationError:
+            continue
 
-    if candidates:
-        return [candidates[0]["id"]]
+    options = api.connectors.listOptions(
+        pipe_id=pipe.id,
+        field_id=field.id,
+        limit=1,
+    )
+    if options:
+        return [options[0].id]
 
     return None
 

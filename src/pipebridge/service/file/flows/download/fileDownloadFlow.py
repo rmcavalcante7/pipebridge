@@ -1,13 +1,13 @@
 # ============================================================
 # Dependencies
 # ============================================================
-import json
 from pathlib import Path
 from typing import List
 from urllib.parse import unquote, urlparse
 
 from pipebridge.exceptions import ValidationError, getExceptionContext
 from pipebridge.exceptions.file import FileDownloadError
+from pipebridge.dispatcher.field.fieldType import FieldType
 from pipebridge.models.file.fileDownloadRequest import FileDownloadRequest
 from pipebridge.service.file.flows.download.baseFileDownloadFlow import (
     BaseFileDownloadFlow,
@@ -85,27 +85,59 @@ class FileDownloadFlow(BaseFileDownloadFlow):
                 method_name=method_name,
             )
 
-        card = self._context.card_service.getCardModel(request.card_id)
+        field = self._context.card_service.getCardPipeField(
+            request.card_id,
+            request.field_id,
+        )
+        if field is None:
+            raise ValidationError(
+                message=(
+                    f"Field '{request.field_id}' does not exist in the card pipe schema"
+                ),
+                class_name=class_name,
+                method_name=method_name,
+            )
 
-        if not card.hasField(request.field_id):
-            return []
+        if field.type != FieldType.ATTACHMENT:
+            raise ValidationError(
+                message=f"Field '{request.field_id}' is not an attachment field",
+                class_name=class_name,
+                method_name=method_name,
+            )
 
-        raw_value = card.requireFieldValue(request.field_id)
-
-        if not raw_value:
+        attachments = self._context.card_service.listCardAttachmentsByField(
+            request.card_id,
+            request.field_id,
+        )
+        if not attachments:
             return []
 
         try:
-            attachments = json.loads(raw_value)
-
             output_path = Path(request.output_dir)
             output_path.mkdir(parents=True, exist_ok=True)
 
             saved_files: List[Path] = []
 
-            for url in attachments:
-                parsed_url = urlparse(url)
-                file_name = unquote(Path(parsed_url.path).name)
+            for attachment in attachments:
+                url = attachment.get("url")
+                if not isinstance(url, str) or not url:
+                    raise FileDownloadError(
+                        message="Attachment download URL is missing or invalid",
+                        class_name=class_name,
+                        method_name=method_name,
+                        context={
+                            "card_id": request.card_id,
+                            "field_id": request.field_id,
+                        },
+                    )
+
+                path_hint = attachment.get("path")
+                if isinstance(path_hint, str) and path_hint:
+                    file_name = unquote(Path(path_hint).name)
+                else:
+                    parsed_url = urlparse(url)
+                    file_name = unquote(Path(parsed_url.path).name)
+
                 content = self._context.file_integration.download(url)
 
                 file_path = output_path / file_name

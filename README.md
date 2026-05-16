@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.2.5">
-    <img src="https://img.shields.io/badge/tag-v0.2.5-2563EB" alt="Tag v0.2.5" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.3.0">
+    <img src="https://img.shields.io/badge/tag-v0.3.0-2563EB" alt="Tag v0.3.0" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -27,12 +27,13 @@ Instead of wiring raw GraphQL queries, manual validation, and brittle payload ha
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework designed for maintainable Pipefy automation.
 
-New in `v0.2.5`:
+New in `v0.3.0`:
 
-- start form schema coverage in the pipe catalog
-- safe card creation against start form fields
-- transport-level TLS and retry configuration
-- Python runtime restriction restored to `3.14`
+- first-class connector discovery and semantic connector operations
+- connector-safe start form creation and card updates
+- richer table-backed connector options with `record_fields` and `record_fields_map`
+- phase-schema helpers for explicit field existence checks
+- file flows aligned with schema-based attachment validation instead of `card.fields`
 
 Quick links:
 
@@ -124,6 +125,7 @@ Public domains:
 - `api.cards`
 - `api.phases`
 - `api.pipes`
+- `api.connectors`
 - `api.files`
 
 Sub-levels when applicable:
@@ -143,6 +145,7 @@ Objects also exposed at the package top level:
 - `FileService`
 - `PipeService`
 - `PhaseService`
+- `ConnectorService`
 - `FileUploadRequest`
 - `FileDownloadRequest`
 - `UploadConfig`
@@ -158,6 +161,16 @@ card = api.cards.get("123")
 phase = api.phases.get("456")
 pipe = api.pipes.get("789")
 ```
+
+Important note about card field payloads:
+
+- `card.fields` mirrors the `fields` collection returned by Pipefy for that
+  card query
+- it should be treated as the set of materialized field values exposed by the
+  API, not as the complete schema of the phase or pipe
+- a field missing from `card.fields` does not imply that the field does not
+  exist in the phase or pipe schema
+- for schema existence checks, prefer phase or pipe helpers
 
 ### 2. Pipe schema catalog and start form coverage
 
@@ -206,9 +219,47 @@ It validates:
 Important note:
 
 - start-form connector fields must receive connected record ids, not display labels
+- `api.connectors.resolveOption(...)` can be used before creation when the caller only knows the display title
 - a full tenant-specific example of create, move, and update is available in `useCases/start_form_create_move_fill.py`
 
-### 4. Safe card field updates
+### 4. Connector discovery and semantic operations
+
+```python
+fields = api.connectors.listFields("789")
+
+for connector in fields:
+    print(
+        connector.field_id,
+        connector.origin_type,
+        connector.phase_name,
+        connector.connected_repo.repo_type if connector.connected_repo else None,
+        connector.connected_repo.name if connector.connected_repo else None,
+    )
+
+option = api.connectors.resolveOption(
+    pipe_id="789",
+    field_id="nome_projetos",
+    title="IA Time",
+)
+
+api.connectors.setCardValue(
+    card_id="123",
+    field_id="nome_projetos",
+    item_ids=[option.id],
+)
+```
+
+Connector notes:
+
+- connector options are dynamic and repo-backed
+- connectors may live in the start form or in a regular phase
+- table-backed connector options may expose extra record metadata through
+  `record_fields` and `record_fields_map`
+- that metadata can be used to disambiguate options that share similar titles
+- empty connectors may be absent from `card.fields`
+- for filled connectors, `api.connectors.getCardValue(...)` exposes ids and connected items
+
+### 5. Safe card field updates
 
 ```python
 from pipebridge import CardUpdateConfig
@@ -244,13 +295,21 @@ The current update flow supports important field families, including:
 - label_select
 - checklist
 - assignee_select
+- connector
 - attachment
 
-Important note:
+For explicit phase-schema inspection, the public phase helpers are:
 
-- `connector` is out of scope for V1 by architectural decision
+```python
+field = api.phases.getField("456", "priority")
+exists = api.phases.hasField("456", "priority")
+required_field = api.phases.requireField("456", "priority")
+```
 
-### 5. Safe phase moves
+These helpers answer whether a field exists in the phase schema, not whether a
+value was materialized in `card.fields`.
+
+### 6. Safe phase moves
 
 ```python
 from pipebridge import CardMoveConfig
@@ -269,7 +328,7 @@ This flow validates:
 - whether the transition is allowed by the current phase configuration
 - whether required fields in the destination phase are filled
 
-### 6. File upload and download
+### 7. File upload and download
 
 ```python
 from pipebridge import FileUploadRequest, FileDownloadRequest, UploadConfig
@@ -294,7 +353,28 @@ download_request = FileDownloadRequest(
 files = api.files.downloadAllAttachments(download_request)
 ```
 
-### 7. Transport configuration
+Important file-flow notes:
+
+- attachment field existence is validated against schema, not only against the
+  current `card.fields` payload
+- attachment merge/download now uses the card attachment surface instead of
+  assuming the attachment field must already be materialized in `card.fields`
+- by default, upload validates attachment fields against the current phase
+  schema
+- when needed, `UploadConfig(validate_field_in_current_phase=False)` allows
+  upload to attachment fields that exist elsewhere in the pipe schema, such as
+  start form or another phase
+
+Example:
+
+```python
+upload_result = api.files.uploadFile(
+  request=upload_request,
+  config=UploadConfig(validate_field_in_current_phase=False),
+)
+```
+
+### 8. Transport configuration
 
 ```python
 from pipebridge import PipeBridge, TransportConfig
@@ -506,13 +586,18 @@ Examples:
 ```python
 card = api.cards.get("123")
 
-if card.hasField("title"):
-    print(card.requireFieldValue("title"))
+title_value = card.getFieldValue("title")
+if title_value is not None:
+    print(title_value)
 
 phase = api.phases.get("456")
 print(phase.getFieldType("priority"))
 print(phase.getFieldOptions("priority"))
 print(phase.isFieldRequired("priority"))
+
+if api.phases.hasField("456", "priority"):
+    schema_field = api.phases.requireField("456", "priority")
+    print(schema_field.label, schema_field.type)
 
 pipe = api.pipes.getFieldCatalog("789")
 for field in pipe.getFieldsByType("select"):
@@ -520,7 +605,37 @@ for field in pipe.getFieldsByType("select"):
 
 for start_form_field in pipe.iterStartFormFields():
     print(start_form_field.id, start_form_field.internal_id)
+
+for connector in api.connectors.listFields("789"):
+    print(
+        connector.field_id,
+        connector.origin_type,
+        connector.connected_repo.name if connector.connected_repo else None,
+    )
 ```
+
+Important semantic distinction:
+
+- `card.hasField(...)` and `card.getField(...)` operate on the `card.fields`
+  payload returned by Pipefy for that card query
+- they answer whether the API materialized a value for that field in the card
+  payload
+- they do not answer whether a field exists in a phase schema or anywhere in
+  the pipe
+- for schema-oriented checks, use:
+  - `api.phases.hasField(phase_id, field_id)`
+  - `api.phases.getField(phase_id, field_id)`
+  - `api.phases.requireField(phase_id, field_id)`
+  - `api.pipes.getFieldCatalog(pipe_id)`
+
+For connector options backed by tables, the returned option objects may also
+include:
+
+- `record_fields`
+- `record_fields_map`
+
+This lets callers inspect extra identification attributes such as project
+manager, squad leader email, or responsible owner before connecting an item.
 
 ## Transport Configuration
 
@@ -589,6 +704,7 @@ It contains executable examples for:
 
 - pipe field catalog inspection
 - cascading inspection across pipes, phases, and cards
+- connector discovery, option resolution, and semantic updates
 - start form creation followed by safe move and phase filling
 - card field updates
 - updates with extra rules
@@ -698,6 +814,8 @@ Current release highlights:
 - start form-aware pipe schema catalog
 - safe card creation via `createSafely(...)`
 - transport configuration via `TransportConfig`
+- connector schema discovery via `api.connectors`
+- semantic connector read and update helpers
 - TLS and retry controls at the HTTP boundary
 - card update flow
 - safe move flow
@@ -721,7 +839,7 @@ Foundational capabilities already in place:
 
 Still out of scope:
 
-- `connector` as a complete relational operation
+- automatic creation of connected items through `throughConnectors`
 - public `steps` extensibility in updates and moves
 - administrative operations for start form configuration
 

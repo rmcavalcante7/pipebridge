@@ -66,6 +66,21 @@ class PipeQueries:
                 required
                 description
                 options
+                help_text: help
+                can_connect_existing: canConnectExisting
+                can_connect_multiples: canConnectMultiples
+                can_create_new_connected: canCreateNewConnected
+                connected_repo: connectedRepo {
+                    __typename
+                    ... on PublicPipe {
+                        id
+                        name
+                    }
+                    ... on PublicTable {
+                        id
+                        name
+                    }
+                }
             }
 
             phases {
@@ -80,6 +95,21 @@ class PipeQueries:
                     required
                     description
                     options
+                    help_text: help
+                    can_connect_existing: canConnectExisting
+                    can_connect_multiples: canConnectMultiples
+                    can_create_new_connected: canCreateNewConnected
+                    connected_repo: connectedRepo {
+                        __typename
+                        ... on PublicPipe {
+                            id
+                            name
+                        }
+                        ... on PublicTable {
+                            id
+                            name
+                        }
+                    }
                 }
             }
         """

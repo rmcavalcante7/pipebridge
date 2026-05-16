@@ -23,8 +23,13 @@ from pipebridge.workflow.steps.baseStep import BaseStep
 from pipebridge.service.pipe.pipeService import PipeService
 from pipebridge.service.phase.phaseService import PhaseService
 from pipebridge.service.file.fileService import FileService
+from pipebridge.service.connector.connectorService import ConnectorService
 from pipebridge.models.card import Card
+from pipebridge.models.connectorFieldSpec import ConnectorFieldSpec
+from pipebridge.models.connectorOption import ConnectorOption
+from pipebridge.models.connectorValue import ConnectorValue
 from pipebridge.models.phase import Phase
+from pipebridge.models.phaseField import PhaseField
 from pipebridge.exceptions import PipefyInitializationError
 from pipebridge.integrations.file.fileUploadResult import FileUploadResult
 from pipebridge.models.file.fileDownloadRequest import FileDownloadRequest
@@ -55,6 +60,15 @@ class CardsFacade:
     def get(self, card_id: str) -> Card:
         """
         Retrieve a card as a model.
+
+        Important:
+            ``card.fields`` reflects the ``fields`` payload returned by Pipefy
+            for the card query. In practice this should be treated as the set
+            of materialized field values exposed by the API for that card, not
+            as the complete schema of the current phase or the pipe.
+
+            Use phase or pipe schema helpers when you need to validate field
+            existence independently from the current card payload.
 
         :param card_id: str = Card identifier
 
@@ -470,6 +484,43 @@ class PhasesFacade:
         """
         return self._service.getPhaseModel(phase_id, query_body)
 
+    def getField(self, phase_id: str, field_id: str) -> Optional[PhaseField]:
+        """
+        Retrieve schema metadata for a field inside a specific phase.
+
+        This helper is phase-schema oriented. It should be used when the caller
+        needs to know whether a field belongs to a phase regardless of whether
+        a card currently exposes a value for that field.
+
+        :param phase_id: str = Phase identifier
+        :param field_id: str = Field identifier
+
+        :return: PhaseField | None = Matching phase field when found
+        """
+        return self._service.getPhaseField(phase_id, field_id)
+
+    def hasField(self, phase_id: str, field_id: str) -> bool:
+        """
+        Check whether a field exists in a specific phase schema.
+
+        :param phase_id: str = Phase identifier
+        :param field_id: str = Field identifier
+
+        :return: bool = Whether the field exists in the phase schema
+        """
+        return self._service.hasPhaseField(phase_id, field_id)
+
+    def requireField(self, phase_id: str, field_id: str) -> PhaseField:
+        """
+        Retrieve a phase field and fail semantically when it does not exist.
+
+        :param phase_id: str = Phase identifier
+        :param field_id: str = Field identifier
+
+        :return: PhaseField = Requested phase field
+        """
+        return self._service.requirePhaseField(phase_id, field_id)
+
     def listCards(self, phase_id: str) -> List[Card]:
         """
         List all cards from a phase.
@@ -634,6 +685,12 @@ class PipesFacade:
         This is the discovery-oriented variant of ``get()``, useful for
         building update coverage and inspecting the schema available in a pipe.
 
+        The returned catalog includes:
+
+        - start form fields
+        - phase fields
+        - connector schema metadata when exposed by Pipefy
+
         :param pipe_id: str = Pipe identifier
 
         :return: Pipe = Pipe model with phase fields populated
@@ -742,6 +799,205 @@ class PipesStructuredFacade:
             True
         """
         return self._service.getPipeStructured(pipe_id, query_body)
+
+
+# ============================================================
+# Domain: Connectors
+# ============================================================
+
+
+class ConnectorsFacade:
+    """
+    Public facade for semantic connector discovery operations.
+
+    This facade exposes connector schema inspection and dynamic option
+    discovery without requiring consumers to write raw GraphQL.
+    """
+
+    def __init__(self, service: ConnectorService) -> None:
+        """
+        Initialize ConnectorsFacade.
+
+        :param service: ConnectorService = Connector discovery service
+        """
+        self._service: ConnectorService = service
+
+    def listFields(self, pipe_id: str) -> List[ConnectorFieldSpec]:
+        """
+        List connector fields configured in a pipe.
+
+        :param pipe_id: str = Pipe identifier
+
+        :return: list[ConnectorFieldSpec] = Connector fields with origin metadata
+        """
+        return self._service.listFields(pipe_id)
+
+    def getField(
+        self,
+        pipe_id: str,
+        field_id: str,
+        phase_id: Optional[str] = None,
+    ) -> Optional[ConnectorFieldSpec]:
+        """
+        Retrieve a connector field specification from a pipe.
+
+        :param pipe_id: str = Pipe identifier
+        :param field_id: str = Connector field identifier
+        :param phase_id: str | None = Optional parent phase identifier
+
+        :return: ConnectorFieldSpec | None = Matching connector field when found
+        """
+        return self._service.getField(
+            pipe_id=pipe_id,
+            field_id=field_id,
+            phase_id=phase_id,
+        )
+
+    def requireField(
+        self,
+        pipe_id: str,
+        field_id: str,
+        phase_id: Optional[str] = None,
+    ) -> ConnectorFieldSpec:
+        """
+        Retrieve a connector field specification and fail when it is missing.
+
+        :param pipe_id: str = Pipe identifier
+        :param field_id: str = Connector field identifier
+        :param phase_id: str | None = Optional parent phase identifier
+
+        :return: ConnectorFieldSpec = Requested connector field
+        """
+        return self._service.requireField(
+            pipe_id=pipe_id,
+            field_id=field_id,
+            phase_id=phase_id,
+        )
+
+    def listOptions(
+        self,
+        pipe_id: str,
+        field_id: str,
+        phase_id: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[ConnectorOption]:
+        """
+        List connector options from the connected repo.
+
+        :param pipe_id: str = Pipe identifier
+        :param field_id: str = Connector field identifier
+        :param phase_id: str | None = Optional phase identifier
+        :param search: str | None = Optional title filter
+        :param limit: int = Maximum number of results
+
+        :return: list[ConnectorOption] = Connector options
+        """
+        return self._service.listOptions(
+            pipe_id=pipe_id,
+            field_id=field_id,
+            phase_id=phase_id,
+            search=search,
+            limit=limit,
+        )
+
+    def resolveOption(
+        self,
+        pipe_id: str,
+        field_id: str,
+        title: str,
+        phase_id: Optional[str] = None,
+    ) -> ConnectorOption:
+        """
+        Resolve a connector option by exact title.
+
+        :param pipe_id: str = Pipe identifier
+        :param field_id: str = Connector field identifier
+        :param title: str = Desired option title
+        :param phase_id: str | None = Optional phase identifier
+
+        :return: ConnectorOption = Unique resolved connector option
+        """
+        return self._service.resolveOption(
+            pipe_id=pipe_id,
+            field_id=field_id,
+            title=title,
+            phase_id=phase_id,
+        )
+
+    def getCardValue(self, card_id: str, field_id: str) -> ConnectorValue:
+        """
+        Retrieve the structured connector value of a card field.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Connector field identifier
+
+        :return: ConnectorValue = Structured connector value
+        """
+        return self._service.getCardValue(card_id=card_id, field_id=field_id)
+
+    def setCardValue(
+        self,
+        card_id: str,
+        field_id: str,
+        item_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Replace the connected ids of a connector field.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Connector field identifier
+        :param item_ids: list[str] = Replacement connected item ids
+
+        :return: dict = Raw update response keyed by updated field
+        """
+        return self._service.setCardValue(
+            card_id=card_id,
+            field_id=field_id,
+            item_ids=item_ids,
+        )
+
+    def addCardValue(
+        self,
+        card_id: str,
+        field_id: str,
+        item_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Add connected ids to a connector field.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Connector field identifier
+        :param item_ids: list[str] = Connected item ids to add
+
+        :return: dict = Raw update response keyed by updated field
+        """
+        return self._service.addCardValue(
+            card_id=card_id,
+            field_id=field_id,
+            item_ids=item_ids,
+        )
+
+    def removeCardValue(
+        self,
+        card_id: str,
+        field_id: str,
+        item_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Remove connected ids from a connector field.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Connector field identifier
+        :param item_ids: list[str] = Connected item ids to remove
+
+        :return: dict = Raw update response keyed by updated field
+        """
+        return self._service.removeCardValue(
+            card_id=card_id,
+            field_id=field_id,
+            item_ids=item_ids,
+        )
 
 
 # ============================================================
@@ -917,6 +1173,11 @@ class PipeBridge:
             )
             pipe_service = PipeService(client)
             phase_service = PhaseService(client)
+            connector_service = ConnectorService(
+                client,
+                pipe_service=pipe_service,
+                card_service=card_service,
+            )
             file_service = FileService(client, card_service)
 
             self.cards = CardsFacade(card_service)
@@ -934,6 +1195,7 @@ class PipeBridge:
             self.pipes.raw = PipesRawFacade(pipe_service)
             self.pipes.structured = PipesStructuredFacade(pipe_service)
 
+            self.connectors = ConnectorsFacade(connector_service)
             self.files = FilesFacade(file_service)
             self.transport_config = client.transport_config
 

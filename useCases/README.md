@@ -19,8 +19,10 @@ Endpoint:
 Examples:
 
 ```powershell
+python useCases/connector_full_catalog_demo.py
 python useCases/pipe_field_catalog.py --token YOUR_TOKEN --pipe-id 307064875
 python useCases/pipe_cascade_inspection.py --token YOUR_TOKEN --pipe-id 307064875 --max-cards-per-phase 3
+python useCases/connector_discovery_and_update.py --token YOUR_TOKEN --pipe-id 307064875 --field-id nome_projetos --resolve-title "IA Time"
 python useCases/start_form_create_move_fill.py --token YOUR_TOKEN --pipe-id 307064875 --project-record-id 1316654201 --requester-email you@example.com --direct-leader-email leader@example.com --assessment-owner-name "YOUR NAME"
 python useCases/card_update_current_phase.py --token YOUR_TOKEN --card-id 1330664077 --target-assignee-name "RAFAEL MOTA CAVALCANTE"
 python useCases/card_update_with_extra_rules.py --token YOUR_TOKEN --card-id 1330664077 --field-id tower_description --value "CUSTOM_VALUE"
@@ -34,5 +36,7 @@ python useCases/custom_card_update_handler.py --token YOUR_TOKEN --card-id 13306
 Important note for start-form creation:
 
 - connector fields must receive connected record ids, not display labels
+- `connector_full_catalog_demo.py` is a zero-argument local exploration script for the Automation Factory tenant
+- the new `connector_discovery_and_update.py` example shows how to resolve titles to ids before creation or update
 - the new `start_form_create_move_fill.py` example is tenant-specific by design
 - use it as a template and replace connector ids, option values, and emails with values from your own Pipefy workspace

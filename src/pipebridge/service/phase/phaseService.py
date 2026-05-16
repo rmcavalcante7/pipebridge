@@ -13,6 +13,7 @@ from pipebridge.exceptions import (
     getExceptionContext,
 )
 from pipebridge.models.phase import Phase
+from pipebridge.models.phaseField import PhaseField
 from pipebridge.service.phase.queries.phaseQueries import PhaseQueries
 
 
@@ -239,6 +240,51 @@ class PhaseService:
                 cause=exc,
                 retryable=getattr(exc, "retryable", False),
             ) from exc
+
+    # ============================================================
+    # Semantic Helpers
+    # ============================================================
+
+    def getPhaseField(self, phase_id: str, field_id: str) -> Optional[PhaseField]:
+        """
+        Retrieve phase schema metadata for a specific field.
+
+        This helper is phase-schema oriented. It does not inspect card payloads
+        and does not depend on whether a field currently has a value in a card.
+
+        :param phase_id: str = Phase identifier
+        :param field_id: str = Field identifier
+
+        :return: PhaseField | None = Matching phase field when found
+        """
+        phase = self.getPhaseModel(phase_id)
+        return phase.getField(field_id)
+
+    def hasPhaseField(self, phase_id: str, field_id: str) -> bool:
+        """
+        Check whether a field exists in a specific phase schema.
+
+        :param phase_id: str = Phase identifier
+        :param field_id: str = Field identifier
+
+        :return: bool = Whether the field exists in the phase schema
+        """
+        return self.getPhaseField(phase_id, field_id) is not None
+
+    def requirePhaseField(self, phase_id: str, field_id: str) -> PhaseField:
+        """
+        Retrieve a phase field and fail semantically when it is missing.
+
+        :param phase_id: str = Phase identifier
+        :param field_id: str = Field identifier
+
+        :return: PhaseField = Requested phase field
+
+        :raises RequestError:
+            When the field does not exist in the phase schema
+        """
+        phase = self.getPhaseModel(phase_id)
+        return phase.requireField(field_id)
 
 
 # ============================================================

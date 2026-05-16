@@ -96,9 +96,12 @@ class ValidateCardFieldSchemaRule(BaseRule):
             FieldType.LABEL_SELECT,
             FieldType.RADIO_HORIZONTAL,
             FieldType.RADIO_VERTICAL,
-            FieldType.CONNECTOR,
         ):
             valid = isinstance(value, str)
+        elif field_type == FieldType.CONNECTOR:
+            valid = isinstance(value, str) or (
+                isinstance(value, list) and all(isinstance(item, str) for item in value)
+            )
         elif field_type in (FieldType.NUMBER, FieldType.CURRENCY):
             valid = isinstance(value, (int, float, str))
         elif field_type in (FieldType.DATE, FieldType.DATETIME, FieldType.DUE_DATE):

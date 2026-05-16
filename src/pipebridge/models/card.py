@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import inspect
 
 from pipebridge.models.base import BaseModel
+from pipebridge.models.connectorValue import ConnectorValue
 from pipebridge.models.field import Field
 from pipebridge.models.phase import Phase
 from pipebridge.models.phaseHistory import PhaseHistory
@@ -23,6 +24,16 @@ class Card(BaseModel):
     helper methods should be preferred over direct map access whenever
     possible.
 
+    Important semantic note about ``fields``:
+
+    - ``card.fields`` mirrors the ``fields`` collection returned by the Pipefy
+      card query.
+    - This collection should be treated as the set of materialized field
+      values exposed by the API for that card.
+    - It is not a complete schema catalog for the current phase or the pipe.
+    - A field missing from ``card.fields`` does not imply that the field does
+      not exist in the phase or in the pipe schema.
+
     Preferred access patterns:
 
     - ``getField(...)``
@@ -30,6 +41,8 @@ class Card(BaseModel):
     - ``requireField(...)``
     - ``getFieldValue(...)``
     - ``getFieldType(...)``
+    - ``getConnectorIds(...)``
+    - ``getConnectedItems(...)``
     - ``iterFields()``
     """
 
@@ -52,7 +65,8 @@ class Card(BaseModel):
         :param pipe_id: str | None = Parent pipe identifier
         :param current_phase: Phase | None = Current phase model
         :param phases_history: list[PhaseHistory] = Historic phase records
-        :param fields: list[Field] = Current field values
+        :param fields: list[Field] = Materialized field values returned by the
+            Pipefy card query
         :param assignees: list[User] = Assigned users
         :param labels: list[Label] = Applied labels
         """
@@ -276,6 +290,8 @@ class Card(BaseModel):
         Retrieve a field by its ID.
 
         This is the preferred non-raising accessor for card fields.
+        It only searches inside the ``card.fields`` payload returned by
+        Pipefy for this card query.
 
         :param field_id: str = Field identifier
 
@@ -290,17 +306,24 @@ class Card(BaseModel):
 
     def hasField(self, field_id: str) -> bool:
         """
-        Check whether a field exists in the card.
+        Check whether a field exists in the current card payload.
+
+        This does not validate field existence in the phase schema or pipe
+        schema. It only answers whether the field is present inside the
+        materialized ``card.fields`` payload returned by Pipefy.
 
         :param field_id: str = Field identifier
 
-        :return: bool = Whether the field exists
+        :return: bool = Whether the field exists in ``card.fields``
         """
         return self.getField(field_id) is not None
 
     def requireField(self, field_id: str) -> Field:
         """
         Retrieve a field and fail semantically when it does not exist.
+
+        The existence check is limited to the ``card.fields`` payload already
+        materialized for this card.
 
         :param field_id: str = Field identifier
 
@@ -322,6 +345,9 @@ class Card(BaseModel):
         """
         Retrieve the raw value of a field and fail when the field is missing.
 
+        The lookup is limited to the ``card.fields`` payload already
+        materialized for this card.
+
         :param field_id: str = Field identifier
 
         :return: Any = Raw field value
@@ -333,7 +359,10 @@ class Card(BaseModel):
 
     def iterFields(self) -> List[Field]:
         """
-        Return all card fields as an ordered list.
+        Return all materialized card fields as an ordered list.
+
+        This list reflects the ``card.fields`` payload returned by Pipefy. It
+        should not be treated as the complete phase or pipe schema.
 
         :return: list[Field] = Card fields
         """
@@ -368,6 +397,66 @@ class Card(BaseModel):
         """
         field = self.getField(field_id)
         return field.value if field else None
+
+    def getConnectorIds(self, field_id: str) -> List[str]:
+        """
+        Retrieve connected repo item identifiers from a connector field.
+
+        This only works when the connector field is materialized inside
+        ``card.fields``.
+
+        :param field_id: str = Connector field identifier
+
+        :return: list[str] = Connected repo item identifiers
+        """
+        field = self.getField(field_id)
+        if not field or field.type != "connector":
+            return []
+        return [str(item) for item in field.array_value if item is not None]
+
+    def getConnectedItems(self, field_id: str) -> List[Any]:
+        """
+        Retrieve connected repo item metadata from a connector field.
+
+        :param field_id: str = Connector field identifier
+
+        :return: list[ConnectedRepoItem] = Connected item metadata
+        """
+        field = self.getField(field_id)
+        if not field or field.type != "connector":
+            return []
+        return list(field.connected_items)
+
+    def hasConnectedItems(self, field_id: str) -> bool:
+        """
+        Check whether a connector field materialized connected item metadata.
+
+        :param field_id: str = Connector field identifier
+
+        :return: bool = Whether the field exposes connected items
+        """
+        return bool(self.getConnectedItems(field_id))
+
+    def getConnectorValue(self, field_id: str) -> Optional[ConnectorValue]:
+        """
+        Retrieve a structured connector value from the current card payload.
+
+        :param field_id: str = Connector field identifier
+
+        :return: ConnectorValue | None = Structured connector value when available
+        """
+        field = self.getField(field_id)
+        if not field or field.type != "connector":
+            return None
+
+        return ConnectorValue(
+            field_id=field.id,
+            item_ids=self.getConnectorIds(field_id),
+            items=self.getConnectedItems(field_id),
+            raw_value=field.value,
+            report_value=field.report_value,
+            native_value=field.native_value,
+        )
 
     def getFieldType(self, field_id: str) -> Optional[str]:
         """

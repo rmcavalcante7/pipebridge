@@ -24,6 +24,7 @@ from pipebridge.exceptions.validation.field import (
     RequiredFieldError,
 )
 from pipebridge.service.phase.phaseService import PhaseService
+from pipebridge.service.connector.connectorService import ConnectorService
 from pipebridge.service.pipe.cache.pipeSchemaCache import PipeSchemaCache
 from pipebridge.service.pipe.pipeService import PipeService
 from pipebridge.exceptions import (
@@ -37,6 +38,7 @@ from pipebridge.exceptions import (
 
 from pipebridge.models.card import Card
 from pipebridge.models.pagination import PaginatedResponse
+from pipebridge.models.phaseField import PhaseField
 from pipebridge.workflow.rules.baseRule import BaseRule
 from pipebridge.models.pipe import Pipe
 
@@ -81,6 +83,10 @@ class CardService:
         self._client: PipefyHttpClient = client
         self._phase_service: PhaseService = PhaseService(client)
         self._pipe_service: PipeService = PipeService(client)
+        self._connector_service: ConnectorService = ConnectorService(
+            client,
+            pipe_service=self._pipe_service,
+        )
         self._pipe_schema_cache = PipeSchemaCache(
             ttl_seconds=pipe_schema_cache_ttl_seconds
         )
@@ -252,6 +258,7 @@ class CardService:
             )
 
         fields = fields or {}
+        fields = dict(fields)
         pipe_schema = self._pipe_schema_cache.getOrLoad(
             pipe_id,
             loader=lambda: self._pipe_service.getPipeFieldCatalog(pipe_id),
@@ -286,6 +293,12 @@ class CardService:
 
         for field_id, value in fields.items():
             phase_field = start_form_field_map[field_id]
+            if phase_field.isConnector() and value is not None:
+                fields[field_id] = self._connector_service.validateConnectorSelection(
+                    phase_field,
+                    value,
+                )
+                continue
             if phase_field.options and value is not None:
                 values_to_validate = value if isinstance(value, list) else [value]
                 invalid_options = [
@@ -434,6 +447,18 @@ class CardService:
               }
               value
               report_value
+              array_value
+              native_value
+              connectedRepoItems {
+                __typename
+                ... on PublicRepoItemInterface {
+                  id
+                  title
+                  path
+                  url
+                  uuid
+                }
+              }
             }
 
             assignees {
@@ -479,6 +504,177 @@ class CardService:
                 cause=exc,
                 retryable=getattr(exc, "retryable", False),
             ) from exc
+
+    def _getCardPipeSchema(self, card: Card) -> Optional[Pipe]:
+        """
+        Load the cached pipe schema associated with a card.
+
+        :param card: Card = Card model with optional ``pipe_id``
+
+        :return: Pipe | None = Cached pipe schema when card pipe is known
+        """
+        pipe_id = card.pipe_id
+        if not pipe_id:
+            return None
+
+        return self._pipe_schema_cache.getOrLoad(
+            pipe_id,
+            loader=lambda: self._pipe_service.getPipeFieldCatalog(pipe_id),
+        )
+
+    def getCardPipeField(self, card_id: str, field_id: str) -> Optional[PhaseField]:
+        """
+        Retrieve schema metadata for a card field anywhere in the parent pipe.
+
+        This helper is schema-oriented. It does not depend on whether the
+        field currently appears in ``card.fields``.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Field identifier
+
+        :return: PhaseField | None = Matching schema field when found
+        """
+        class_name, method_name = getExceptionContext(self)
+
+        if not card_id:
+            raise ValidationError(
+                message="card_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        if not field_id:
+            raise ValidationError(
+                message="field_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        card = self.getCardModel(card_id)
+        pipe = self._getCardPipeSchema(card)
+        if pipe is None:
+            return None
+
+        return pipe.getField(field_id)
+
+    def getCardCurrentPhaseField(
+        self, card_id: str, field_id: str
+    ) -> Optional[PhaseField]:
+        """
+        Retrieve schema metadata for a field in the card current phase.
+
+        This helper is schema-oriented. It does not depend on whether the
+        field currently appears in ``card.fields``.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Field identifier
+
+        :return: PhaseField | None = Matching current-phase field when found
+        """
+        class_name, method_name = getExceptionContext(self)
+
+        if not card_id:
+            raise ValidationError(
+                message="card_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        if not field_id:
+            raise ValidationError(
+                message="field_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        card = self.getCardModel(card_id)
+        if card.current_phase is None:
+            return None
+
+        pipe = self._getCardPipeSchema(card)
+        if pipe is None:
+            return None
+
+        phase = pipe.getPhase(card.current_phase.id)
+        if phase is None:
+            return None
+
+        return phase.getField(field_id)
+
+    def listCardAttachments(self, card_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve all attachments exposed by the Pipefy card attachments surface.
+
+        This helper is more robust than reading attachment URLs from
+        ``card.fields`` because it also works for attachment fields that are
+        not materialized in the current card field payload.
+
+        :param card_id: str = Card identifier
+
+        :return: list[dict[str, Any]] = Attachment payload items
+        """
+        class_name, method_name = getExceptionContext(self)
+
+        if not card_id:
+            raise ValidationError(
+                message="card_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        query_body = """
+            id
+            attachments {
+                path
+                url
+                field {
+                    id
+                    label
+                }
+                phase {
+                    id
+                    name
+                }
+            }
+        """
+
+        card_data = self.getCardStructured(card_id, query_body)
+        attachments = card_data.get("attachments") or []
+        if not isinstance(attachments, list):
+            raise UnexpectedResponseError(
+                message="Card attachments payload is missing or invalid",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        return [item for item in attachments if isinstance(item, dict)]
+
+    def listCardAttachmentsByField(
+        self, card_id: str, field_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve attachments associated with a specific field in a card.
+
+        :param card_id: str = Card identifier
+        :param field_id: str = Field identifier
+
+        :return: list[dict[str, Any]] = Attachment payload items for the field
+        """
+        class_name, method_name = getExceptionContext(self)
+
+        if not field_id:
+            raise ValidationError(
+                message="field_id cannot be empty",
+                class_name=class_name,
+                method_name=method_name,
+            )
+
+        attachments = self.listCardAttachments(card_id)
+        return [
+            item
+            for item in attachments
+            if str((item.get("field") or {}).get("id", "")) == field_id
+        ]
 
     def moveCardToPhase(self, card_id: str, phase_id: str) -> Dict[str, Any]:
         """

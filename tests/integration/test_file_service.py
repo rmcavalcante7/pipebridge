@@ -18,10 +18,10 @@ from pipebridge.workflow.config.retryConfig import RetryConfig
 from pipebridge.workflow.rules.baseRule import BaseRule
 from pipebridge.workflow.steps.baseStep import BaseStep
 
-CARD_ID = "1328390184"
-PHASE_ID = "342616256"
+CARD_ID = "1333707852"
+PHASE_ID = "342616253"
 ORG_ID = "133269"
-FIELD_ID = "c_digo"
+FIELD_ID = "anexos"
 
 
 def _build_random_txt_file_name() -> str:

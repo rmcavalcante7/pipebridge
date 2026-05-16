@@ -33,6 +33,9 @@ class FileUploadRequest:
     :param field_id: str = Target field identifier
     :param organization_id: str = Pipefy organization identifier
     :param replace_files: bool = Whether to replace or append existing files
+    :param expected_phase_id: str | None = Optional current-phase guard. When
+        provided, the upload flow validates that the card is in this phase.
+        When omitted or set to ``None``, no current-phase validation is executed.
 
     :raises ValidationError:
         When any parameter is invalid
@@ -68,7 +71,10 @@ class FileUploadRequest:
         :param field_id: str = Target attachment field identifier
         :param organization_id: str = Pipefy organization identifier
         :param replace_files: bool = Whether existing attachments should be replaced
-        :param expected_phase_id: str | None = Optional expected current phase
+        :param expected_phase_id: str | None = Optional current-phase guard.
+            If provided, the upload flow validates that the card is currently
+            in this phase before uploading. If omitted or set to ``None``,
+            the upload flow skips current-phase validation entirely.
 
         :raises ValidationError:
             When any argument has an invalid type or value

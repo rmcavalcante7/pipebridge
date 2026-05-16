@@ -1,13 +1,7 @@
-# ============================================================
-# Dependencies
-# ============================================================
-import json
-
 from pipebridge.workflow.steps.baseStep import BaseStep
 from pipebridge.service.file.flows.upload.context.uploadPipelineContext import (
     UploadPipelineContext,
 )
-from pipebridge.exceptions import ValidationError
 from pipebridge.exceptions.file import AttachmentMergeError
 from pipebridge.exceptions.core.utils import getExceptionContext
 
@@ -60,28 +54,27 @@ class MergeAttachmentsStep(BaseStep):
             return
 
         try:
-            card = context.card_service.getCardModel(request.card_id)
+            attachments = context.card_service.listCardAttachmentsByField(
+                request.card_id,
+                request.field_id,
+            )
 
-            if not card.hasField(request.field_id):
-                raise ValidationError(
-                    message=f"Field {request.field_id} not found in card {request.card_id}",
-                    class_name=class_name,
-                    method_name=method_name,
-                )
-
-            raw_value = card.requireFieldValue(request.field_id)
-
-            if not raw_value:
+            if not attachments:
                 return
 
-            urls = json.loads(raw_value)
+            existing_files = []
+            for attachment in attachments:
+                path = attachment.get("path")
+                if isinstance(path, str) and path:
+                    existing_files.append(path)
+                    continue
 
-            existing_files = [context.integration.extractFilePath(url) for url in urls]
+                url = attachment.get("url")
+                if isinstance(url, str) and url:
+                    existing_files.append(context.integration.extractFilePath(url))
 
             context.files = existing_files + context.files
 
-        except ValidationError:
-            raise
         except Exception as exc:
             raise AttachmentMergeError(
                 message=str(exc),

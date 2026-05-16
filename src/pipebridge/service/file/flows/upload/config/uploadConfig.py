@@ -18,6 +18,10 @@ class UploadConfig:
 
     :param retry: Optional[RetryConfig] = Retry configuration
     :param circuit: Optional[CircuitBreakerConfig] = Circuit breaker configuration
+    :param validate_field_in_current_phase: bool = Whether upload field
+        existence must be validated strictly against the card current phase
+        schema. When disabled, the field may exist anywhere in the pipe schema,
+        including start form or another phase.
 
     :example:
         >>> cfg = UploadConfig()
@@ -29,12 +33,15 @@ class UploadConfig:
         self,
         retry: Optional[RetryConfig] = None,
         circuit: Optional[CircuitBreakerConfig] = None,
+        validate_field_in_current_phase: bool = True,
     ) -> None:
         """
         Initialize UploadConfig.
 
         :param retry: Optional[RetryConfig] = Retry configuration
         :param circuit: Optional[CircuitBreakerConfig] = Circuit breaker configuration
+        :param validate_field_in_current_phase: bool = Whether field existence
+            is validated only against the current phase schema
 
         :return: None
 
@@ -45,3 +52,4 @@ class UploadConfig:
         """
         self.retry: RetryConfig = retry or RetryConfig()
         self.circuit: CircuitBreakerConfig = circuit or CircuitBreakerConfig()
+        self.validate_field_in_current_phase: bool = validate_field_in_current_phase

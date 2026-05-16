@@ -20,6 +20,7 @@ from pipebridge.service.file.fileService import FileService
 from pipebridge.service.file.flows.upload.config.uploadConfig import UploadConfig
 from pipebridge.service.phase.phaseService import PhaseService
 from pipebridge.service.pipe.pipeService import PipeService
+from pipebridge.service.connector.connectorService import ConnectorService
 
 __all__ = [
     "PipeBridge",
@@ -29,6 +30,7 @@ __all__ = [
     "FileService",
     "PipeService",
     "PhaseService",
+    "ConnectorService",
     "FileUploadRequest",
     "FileDownloadRequest",
     "UploadConfig",

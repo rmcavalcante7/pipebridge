@@ -10,8 +10,12 @@ class ValidateCardPhaseRule(BaseRule):
     """
     Validate whether the card is currently in the expected phase.
 
-    This rule is optional by design. When the request does not define
-    ``expected_phase_id``, the rule is skipped.
+    This rule is optional by design.
+
+    - If ``request.expected_phase_id`` is provided, the rule validates that the
+      card is currently in that phase.
+    - If ``request.expected_phase_id`` is omitted or ``None``, the rule is
+      skipped and no current-phase validation is executed.
 
     :example:
         >>> callable(ValidateCardPhaseRule.execute)
@@ -29,7 +33,8 @@ class ValidateCardPhaseRule(BaseRule):
         :return: None
 
         :raises ValidationError:
-            When the card does not belong to the expected phase
+            When ``expected_phase_id`` is provided and the card does not belong
+            to the expected phase
 
         :example:
             >>> callable(ValidateCardPhaseRule.execute)

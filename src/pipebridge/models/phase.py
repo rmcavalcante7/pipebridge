@@ -31,6 +31,7 @@ class Phase(BaseModel):
     - ``getFieldType(...)``
     - ``getFieldOptions(...)``
     - ``isFieldRequired(...)``
+    - ``getConnectorFields()``
     - ``iterFields()``
 
     :param id: str = Phase identifier
@@ -418,3 +419,11 @@ class Phase(BaseModel):
         :return: list[PhaseField] = Matching field schemas
         """
         return [field for field in self.fields if field and field.type == field_type]
+
+    def getConnectorFields(self) -> List[PhaseField]:
+        """
+        Retrieve all connector fields configured in this phase.
+
+        :return: list[PhaseField] = Connector field schemas
+        """
+        return [field for field in self.fields if field and field.isConnector()]

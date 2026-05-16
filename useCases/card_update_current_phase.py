@@ -1,5 +1,5 @@
 """
-Usage example for updating supported fields in the current phase of a card.
+Usage example for updating supported fields from the current phase schema of a card.
 """
 
 from __future__ import annotations
@@ -136,10 +136,12 @@ def resolve_update_value(
 
 def main() -> None:
     """
-    Execute the card current-phase update example.
+    Execute the card current-phase schema update example.
     """
     parser = argparse.ArgumentParser(
-        description="Update all supported fields from the current phase of a Pipefy card.",
+        description=(
+            "Update supported fields from the current phase schema of a Pipefy card."
+        ),
     )
     add_connection_arguments(parser)
     parser.add_argument("--card-id", required=True, help="Card identifier.")
@@ -160,15 +162,15 @@ def main() -> None:
     phase = api.phases.get(current_phase.id)
     print(f"Card: {card.title} ({card.id})")
     print(f"Current phase: {phase.name} ({phase.id})")
+    print(
+        "Note: card.fields reflects only the materialized field values returned by "
+        "Pipefy. This example iterates the full current phase schema."
+    )
 
     update_payload: dict[str, Any] = {}
     skipped: list[str] = []
 
     for phase_field in phase.iterFields():
-        if not card.hasField(phase_field.id):
-            skipped.append(f"{phase_field.id}: field is outside current card payload")
-            continue
-
         supported, value, reason = resolve_update_value(
             card=card,
             field=phase_field,

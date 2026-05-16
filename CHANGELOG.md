@@ -14,6 +14,17 @@ The format follows this convention:
 
 - No pending entries.
 
+## [0.3.0] - 2026-05-15
+
+- `feat:` added first-class connector discovery through `api.connectors`, including field inspection, option listing, title resolution, and semantic card value helpers
+- `feat:` expanded connector modeling with connected repo metadata, structured connector values, and richer table-backed option payloads via `record_fields` and `record_fields_map`
+- `feat:` strengthened `createSafely(...)` to validate start-form connector ids against the connected repo and connector multiplicity rules
+- `feat:` added public phase-schema helpers for explicit field existence checks through `api.phases.getField(...)`, `api.phases.hasField(...)`, and `api.phases.requireField(...)`
+- `fix:` aligned file upload and download flows with schema-based attachment validation and card attachment aggregation instead of relying on `card.fields`
+- `docs:` clarified that `card.fields` is a materialized value payload from Pipefy, not the complete schema of the phase or pipe
+- `docs:` updated README, use cases, and agent-tooling docs for connector workflows, richer connector options, and the new file-flow semantics
+- `test:` added unit and live coverage for connector schema discovery, connector card reads, safe connector creation, semantic connector updates, and corrected file-field resolution
+
 ## [0.2.5] - 2026-04-10
 
 - `build:` restored the package runtime restriction to Python `>=3.14,<3.15` after import failures were confirmed on Python `3.13`

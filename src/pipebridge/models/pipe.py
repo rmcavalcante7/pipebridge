@@ -34,6 +34,7 @@ class Pipe(BaseModel):
     - ``iterPhases()``
     - ``getStartFormField(...)``
     - ``iterStartFormFields()``
+    - ``iterStartFormConnectorFields()``
     - ``getLabel(...)``
     - ``requireLabel(...)``
     - ``iterLabels()``
@@ -42,6 +43,7 @@ class Pipe(BaseModel):
     - ``iterUsers()``
     - ``iterAllFields()``
     - ``getFieldsByType(...)``
+    - ``getConnectorFields()``
 
     :param id: str = Unique identifier of the pipe
     :param name: str | None = Human-readable name of the pipe
@@ -345,6 +347,16 @@ class Pipe(BaseModel):
         """
         return list(self.start_form_fields)
 
+    def iterStartFormConnectorFields(self) -> List[PhaseField]:
+        """
+        Return all connector fields configured in the start form.
+
+        :return: list[PhaseField] = Start form connector fields
+        """
+        return [
+            field for field in self.start_form_fields if field and field.isConnector()
+        ]
+
     def getPhase(self, phase_id: str) -> Optional[Phase]:
         """
         Retrieve a phase by its identifier.
@@ -479,6 +491,16 @@ class Pipe(BaseModel):
         for phase in self.phases:
             fields.extend(phase.getFieldsByType(field_type))
         return fields
+
+    def getConnectorFields(self) -> List[PhaseField]:
+        """
+        Retrieve all connector fields across start form and phases.
+
+        :return: list[PhaseField] = Connector field schemas
+        """
+        return [
+            field for field in self.iterAllFields() if field and field.isConnector()
+        ]
 
     def getLabel(self, label_id: str) -> Optional[Label]:
         """

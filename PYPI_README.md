@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.1.4">
-    <img src="https://img.shields.io/badge/tag-v0.1.4-2563EB" alt="Tag v0.1.4" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.3.0">
+    <img src="https://img.shields.io/badge/tag-v0.3.0-2563EB" alt="Tag v0.3.0" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -26,12 +26,21 @@ Instead of stitching together raw GraphQL queries, validation logic, and payload
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework for production-oriented Pipefy automation.
 
+New in `v0.3.0`:
+
+- first-class connector discovery and semantic connector operations
+- connector-safe start form creation and card updates
+- richer table-backed connector options with `record_fields` and `record_fields_map`
+- phase-schema helpers for explicit field existence checks
+- file flows aligned with schema-based attachment validation instead of `card.fields`
+
 ## Why PipeBridge?
 
 PipeBridge helps reduce the friction of direct Pipefy integrations by providing:
 
 - a simple public facade
 - typed and semantic models
+- connector discovery and semantic connector operations
 - safe field updates
 - safe phase transitions
 - file upload and download flows
@@ -59,6 +68,15 @@ print(card.title)
 print(card.current_phase.name if card.current_phase else None)
 ```
 
+Important note:
+
+- `card.fields` mirrors the `fields` collection returned by Pipefy for that
+  card query
+- it should be treated as the set of materialized field values exposed by the
+  API, not as the complete schema of the phase or pipe
+- for schema checks, prefer phase or pipe helpers
+- empty connector fields may be absent from `card.fields`
+
 ## Core Capabilities
 
 ### Safe card field updates
@@ -81,6 +99,35 @@ api.cards.updateFields(
     ),
 )
 ```
+
+### Phase schema checks
+
+```python
+if api.phases.hasField("456", "priority"):
+    phase_field = api.phases.requireField("456", "priority")
+    print(phase_field.label, phase_field.type)
+```
+
+### Connector discovery and semantic updates
+
+```python
+fields = api.connectors.listFields("789")
+option = api.connectors.resolveOption(
+    pipe_id="789",
+    field_id="nome_projetos",
+    title="IA Time",
+)
+api.connectors.setCardValue(
+    card_id="123",
+    field_id="nome_projetos",
+    item_ids=[option.id],
+)
+```
+
+Important note:
+
+- connector fields use connected item ids, not display labels
+- connector options are dynamic and repo-backed
 
 ### Safe phase moves
 

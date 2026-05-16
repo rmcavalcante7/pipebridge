@@ -16,7 +16,7 @@ from tests.live_examples import (
 
 CARD_ID = "1328390184"
 PIPE_ID = DEFAULT_LIVE_PIPE_ID
-PHASE_ID = "342616255"
+PHASE_ID = "342616253"
 
 
 @pytest.mark.integration

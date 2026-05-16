@@ -16,7 +16,9 @@ class ConnectorUpdateHandler(BaseCardFieldUpdateHandler):
     Resolve connector field updates.
 
     Connector fields are represented by related card or record identifiers.
-    The SDK currently models them as a single string identifier.
+    The SDK accepts either a single identifier string or a list of
+    identifier strings, preserving backward compatibility while enabling the
+    semantic connector helpers to operate with ``list[str]``.
     """
 
     def resolve(
@@ -28,7 +30,7 @@ class ConnectorUpdateHandler(BaseCardFieldUpdateHandler):
         phase_field: Optional[PhaseField] = None,
     ) -> ResolvedFieldUpdate:
         """
-        Resolve connector updates into a related item identifier.
+        Resolve connector updates into related item identifier payload.
 
         :param field_id: str = Logical field identifier
         :param field_type: str = Pipefy field type
@@ -39,12 +41,22 @@ class ConnectorUpdateHandler(BaseCardFieldUpdateHandler):
         :return: ResolvedFieldUpdate = Normalized update operation
 
         :raises ValidationError:
-            When input is not a string identifier
+            When input is neither a string identifier nor a list of string identifiers
         """
         class_name, method_name = getExceptionContext(self)
-        if not isinstance(input_value, str):
+        normalized_value: Any
+        if isinstance(input_value, str):
+            normalized_value = input_value
+        elif isinstance(input_value, list) and all(
+            isinstance(item, str) for item in input_value
+        ):
+            normalized_value = list(input_value)
+        else:
             raise ValidationError(
-                message="Connector fields require a string identifier",
+                message=(
+                    "Connector fields require a string identifier or a list "
+                    "of string identifiers"
+                ),
                 class_name=class_name,
                 method_name=method_name,
             )
@@ -55,5 +67,5 @@ class ConnectorUpdateHandler(BaseCardFieldUpdateHandler):
             input_value=input_value,
             current_field=current_field,
             phase_field=phase_field,
-            new_value=input_value,
+            new_value=normalized_value,
         )
