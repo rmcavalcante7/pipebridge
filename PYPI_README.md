@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.3.0">
-    <img src="https://img.shields.io/badge/tag-v0.3.0-2563EB" alt="Tag v0.3.0" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.3.1">
+    <img src="https://img.shields.io/badge/tag-v0.3.1-2563EB" alt="Tag v0.3.1" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -26,11 +26,12 @@ Instead of stitching together raw GraphQL queries, validation logic, and payload
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework for production-oriented Pipefy automation.
 
-New in `v0.3.0`:
+New in `v0.3.1`:
 
 - first-class connector discovery and semantic connector operations
 - connector-safe start form creation and card updates
 - richer table-backed connector options with `record_fields` and `record_fields_map`
+- contextual connector discovery aligned with the Pipefy UI resolver through `throughConnectors`
 - phase-schema helpers for explicit field existence checks
 - file flows aligned with schema-based attachment validation instead of `card.fields`
 
@@ -128,6 +129,10 @@ Important note:
 
 - connector fields use connected item ids, not display labels
 - connector options are dynamic and repo-backed
+- PipeBridge resolves connector options through the same contextual
+  `cards(...)` resolver used by the Pipefy UI
+- for pipe-backed connectors, discovery uses the connected pipe id
+- for table-backed connectors, discovery uses the connected table `internal_id`
 
 ### Safe phase moves
 

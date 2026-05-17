@@ -26,6 +26,7 @@ class PhaseField:
     :param can_connect_multiples: bool | None = Whether multiple items can be connected
     :param can_create_new_connected: bool | None = Whether new connected items can be created
     :param help_text: str | None = Optional help text exposed by the API
+    :param settings: str | None = Raw field settings payload exposed by the API
     """
 
     def __init__(
@@ -43,6 +44,7 @@ class PhaseField:
         can_connect_multiples: Optional[bool] = None,
         can_create_new_connected: Optional[bool] = None,
         help_text: Optional[str] = None,
+        settings: Optional[str] = None,
     ) -> None:
         """
         Initialize phase field schema metadata.
@@ -60,6 +62,7 @@ class PhaseField:
         :param can_connect_multiples: bool | None = Connector multiplicity flag
         :param can_create_new_connected: bool | None = Connector creation flag
         :param help_text: str | None = API help text
+        :param settings: str | None = Raw field settings payload
         """
         self.id: str = id
         self.label: Optional[str] = label
@@ -74,6 +77,7 @@ class PhaseField:
         self.can_connect_multiples: Optional[bool] = can_connect_multiples
         self.can_create_new_connected: Optional[bool] = can_create_new_connected
         self.help_text: Optional[str] = help_text
+        self.settings: Optional[str] = settings
 
     # ============================================================
     # Factory Methods
@@ -128,6 +132,11 @@ class PhaseField:
                 ),
                 help_text=(
                     data.get("help_text") or data.get("help") or data.get("helpText")
+                ),
+                settings=(
+                    str(data.get("settings"))
+                    if data.get("settings") is not None
+                    else None
                 ),
             )
 

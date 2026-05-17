@@ -15,6 +15,8 @@ class ConnectedRepoRef:
 
     :param repo_type: str | None = Normalized repo type (`Pipe` or `Table`)
     :param id: str | None = Connected repo identifier
+    :param internal_id: str | None = Internal repo identifier when exposed
+    :param uuid: str | None = Repo UUID when exposed
     :param name: str | None = Connected repo display name
     """
 
@@ -22,10 +24,14 @@ class ConnectedRepoRef:
         self,
         repo_type: Optional[str] = None,
         id: Optional[str] = None,
+        internal_id: Optional[str] = None,
+        uuid: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
         self.repo_type: Optional[str] = repo_type
         self.id: Optional[str] = id
+        self.internal_id: Optional[str] = internal_id
+        self.uuid: Optional[str] = uuid
         self.name: Optional[str] = name
 
     @staticmethod
@@ -67,11 +73,17 @@ class ConnectedRepoRef:
                 data.get("repo_type") or data.get("__typename")
             )
             repo_id = data.get("id")
+            repo_internal_id = data.get("internal_id")
+            repo_uuid = data.get("uuid")
             repo_name = data.get("name")
 
             return cls(
                 repo_type=repo_type,
                 id=str(repo_id) if repo_id is not None else None,
+                internal_id=(
+                    str(repo_internal_id) if repo_internal_id is not None else None
+                ),
+                uuid=str(repo_uuid) if repo_uuid is not None else None,
                 name=str(repo_name) if repo_name is not None else None,
             )
 
@@ -95,3 +107,13 @@ class ConnectedRepoRef:
         :return: bool = Whether the repo type is Table
         """
         return self.repo_type == "Table"
+
+    def getDiscoveryRepoId(self) -> Optional[str]:
+        """
+        Resolve the repo identifier used by contextual connector discovery.
+
+        Pipefy may require the public repo id for pipe-backed connectors and
+        the internal numeric id for table-backed connectors. This helper
+        centralizes that decision for connector discovery strategies.
+        """
+        return self.internal_id or self.id

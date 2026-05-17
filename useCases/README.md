@@ -38,5 +38,8 @@ Important note for start-form creation:
 - connector fields must receive connected record ids, not display labels
 - `connector_full_catalog_demo.py` is a zero-argument local exploration script for the Automation Factory tenant
 - the new `connector_discovery_and_update.py` example shows how to resolve titles to ids before creation or update
+- connector discovery is contextual: PipeBridge uses the connector `fieldUuid`
+  and the connected repo identifier expected by Pipefy, including
+  `internal_id` for table-backed connectors when required
 - the new `start_form_create_move_fill.py` example is tenant-specific by design
 - use it as a template and replace connector ids, option values, and emails with values from your own Pipefy workspace

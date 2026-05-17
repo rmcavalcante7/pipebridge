@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.3.0">
-    <img src="https://img.shields.io/badge/tag-v0.3.0-2563EB" alt="Tag v0.3.0" />
+  <a href="https://github.com/rmcavalcante7/pipebridge/releases/tag/v0.3.1">
+    <img src="https://img.shields.io/badge/tag-v0.3.1-2563EB" alt="Tag v0.3.1" />
   </a>
   <a href="https://github.com/rmcavalcante7/pipebridge/actions/workflows/ci.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/rmcavalcante7/pipebridge/ci.yml?branch=main&label=CI" alt="CI" />
@@ -27,11 +27,12 @@ Instead of wiring raw GraphQL queries, manual validation, and brittle payload ha
 > PipeBridge is not a thin GraphQL wrapper.
 > It is an integration framework designed for maintainable Pipefy automation.
 
-New in `v0.3.0`:
+New in `v0.3.1`:
 
 - first-class connector discovery and semantic connector operations
 - connector-safe start form creation and card updates
 - richer table-backed connector options with `record_fields` and `record_fields_map`
+- contextual connector discovery aligned with the Pipefy UI resolver through `throughConnectors`
 - phase-schema helpers for explicit field existence checks
 - file flows aligned with schema-based attachment validation instead of `card.fields`
 
@@ -253,6 +254,12 @@ Connector notes:
 
 - connector options are dynamic and repo-backed
 - connectors may live in the start form or in a regular phase
+- PipeBridge resolves connector options through the same contextual `cards(...)`
+  resolver used by the Pipefy UI, using the connector `fieldUuid`
+- for pipe-backed connectors, the contextual `repoId` comes from the connected
+  pipe id
+- for table-backed connectors, the contextual `repoId` comes from the
+  connected table `internal_id`
 - table-backed connector options may expose extra record metadata through
   `record_fields` and `record_fields_map`
 - that metadata can be used to disambiguate options that share similar titles
@@ -633,6 +640,13 @@ include:
 
 - `record_fields`
 - `record_fields_map`
+
+PipeBridge also preserves the connector repo metadata required by contextual
+discovery:
+
+- `connected_repo.id`
+- `connected_repo.internal_id` when exposed by Pipefy
+- `connector.uuid`
 
 This lets callers inspect extra identification attributes such as project
 manager, squad leader email, or responsible owner before connecting an item.

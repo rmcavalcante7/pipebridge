@@ -29,6 +29,7 @@ class ConnectorFieldSpec:
     :param can_connect_multiples: bool | None = Connector multiplicity flag
     :param can_create_new_connected: bool | None = Connector creation flag
     :param help_text: str | None = Optional help text
+    :param settings: str | None = Raw field settings payload
     :param origin_type: str = ``start_form`` or ``phase``
     :param phase_id: str | None = Parent phase identifier when origin is phase
     :param phase_name: str | None = Parent phase name when origin is phase
@@ -49,6 +50,7 @@ class ConnectorFieldSpec:
         can_connect_multiples: Optional[bool] = None,
         can_create_new_connected: Optional[bool] = None,
         help_text: Optional[str] = None,
+        settings: Optional[str] = None,
         origin_type: str = "start_form",
         phase_id: Optional[str] = None,
         phase_name: Optional[str] = None,
@@ -66,6 +68,7 @@ class ConnectorFieldSpec:
         self.can_connect_multiples: Optional[bool] = can_connect_multiples
         self.can_create_new_connected: Optional[bool] = can_create_new_connected
         self.help_text: Optional[str] = help_text
+        self.settings: Optional[str] = settings
         self.origin_type: str = origin_type
         self.phase_id: Optional[str] = phase_id
         self.phase_name: Optional[str] = phase_name
@@ -102,6 +105,7 @@ class ConnectorFieldSpec:
             can_connect_multiples=field.can_connect_multiples,
             can_create_new_connected=field.can_create_new_connected,
             help_text=field.help_text,
+            settings=field.settings,
             origin_type=origin_type,
             phase_id=phase_id,
             phase_name=phase_name,

@@ -6,19 +6,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pipebridge.client.httpClient import PipefyHttpClient
-from pipebridge.exceptions import (
-    PipefyError,
-    RequestError,
-    UnexpectedResponseError,
-    ValidationError,
-    getExceptionContext,
-)
-from pipebridge.models.connectorValue import ConnectorValue
-from pipebridge.models.connectedRepoRef import ConnectedRepoRef
+from pipebridge.exceptions import RequestError, ValidationError, getExceptionContext
 from pipebridge.models.connectorFieldSpec import ConnectorFieldSpec
 from pipebridge.models.connectorOption import ConnectorOption
+from pipebridge.models.connectorValue import ConnectorValue
 from pipebridge.models.phaseField import PhaseField
 from pipebridge.service.card.flows.update.cardUpdateConfig import CardUpdateConfig
+from pipebridge.service.connector.discovery import (
+    ConnectorOptionDiscoveryStrategyResolver,
+    PipeConnectorOptionDiscoveryStrategy,
+    TableConnectorOptionDiscoveryStrategy,
+)
 from pipebridge.service.pipe.pipeService import PipeService
 
 if TYPE_CHECKING:
@@ -31,6 +29,10 @@ class ConnectorService:
 
     This service exposes connector-aware schema inspection and dynamic option
     discovery without requiring consumers to write raw GraphQL.
+
+    Connector option discovery is contextual. PipeBridge follows the same
+    `cards(... throughConnectors ...)` pattern used by the Pipefy UI and
+    resolves the repo identifier dynamically from connector schema metadata.
     """
 
     def __init__(
@@ -42,6 +44,12 @@ class ConnectorService:
         self._client: PipefyHttpClient = client
         self._pipe_service: PipeService = pipe_service or PipeService(client)
         self._card_service: Optional["CardService"] = card_service
+        self._option_discovery_resolver = ConnectorOptionDiscoveryStrategyResolver(
+            strategies=[
+                PipeConnectorOptionDiscoveryStrategy(client),
+                TableConnectorOptionDiscoveryStrategy(client),
+            ]
+        )
 
     def listFields(self, pipe_id: str) -> List[ConnectorFieldSpec]:
         """
@@ -150,20 +158,11 @@ class ConnectorService:
         self._validateLimit(limit, class_name, method_name)
 
         spec = self.requireField(pipe_id=pipe_id, field_id=field_id, phase_id=phase_id)
-        repo = self._requireConnectedRepo(spec, class_name, method_name)
-
-        if repo.isPipe():
-            return self._listPipeOptions(repo, search=search, limit=limit)
-        if repo.isTable():
-            return self._listTableOptions(repo, search=search, limit=limit)
-
-        raise ValidationError(
-            message=(
-                f"Unsupported connected repo type '{repo.repo_type}' "
-                f"for connector field '{field_id}'"
-            ),
-            class_name=class_name,
-            method_name=method_name,
+        self._requireConnectedRepo(spec, class_name, method_name)
+        return self._option_discovery_resolver.resolve(spec).listOptions(
+            spec=spec,
+            search=search,
+            limit=limit,
         )
 
     def resolveOption(
@@ -200,21 +199,13 @@ class ConnectorService:
             )
 
         spec = self.requireField(pipe_id=pipe_id, field_id=field_id, phase_id=phase_id)
-        repo = self._requireConnectedRepo(spec, class_name, method_name)
-
-        if repo.isPipe():
-            options = self._listPipeOptionsForResolution(repo, normalized_title)
-        elif repo.isTable():
-            options = self._listTableOptions(repo, search=None, limit=None)
-        else:
-            raise ValidationError(
-                message=(
-                    f"Unsupported connected repo type '{repo.repo_type}' "
-                    f"for connector field '{field_id}'"
-                ),
-                class_name=class_name,
-                method_name=method_name,
-            )
+        self._requireConnectedRepo(spec, class_name, method_name)
+        options = self._option_discovery_resolver.resolve(
+            spec
+        ).listOptionsForResolution(
+            spec=spec,
+            desired_title=normalized_title,
+        )
 
         exact_matches = [
             option for option in options if option.matchesTitle(normalized_title)
@@ -309,46 +300,30 @@ class ConnectorService:
                 method_name=method_name,
             )
 
-        repo = field.connected_repo
-        if repo is None or not repo.id:
-            raise ValidationError(
-                message=(
-                    f"Connector field '{field.id}' does not expose connected repo metadata"
-                ),
-                class_name=class_name,
-                method_name=method_name,
+        spec = ConnectorFieldSpec.fromPhaseField(field, origin_type="phase")
+        self._requireConnectedRepo(spec, class_name, method_name)
+        available_ids = {
+            option.id
+            for option in self._option_discovery_resolver.resolve(spec).listOptions(
+                spec=spec,
+                search=None,
+                limit=None,
             )
-
-        if repo.isPipe():
-            available_ids = {
-                option.id
-                for option in self._listPipeOptions(repo, search=None, limit=None)
-                if option.id
-            }
-        elif repo.isTable():
-            available_ids = {
-                option.id
-                for option in self._listTableOptions(repo, search=None, limit=None)
-                if option.id
-            }
-        else:
-            raise ValidationError(
-                message=(
-                    f"Unsupported connected repo type '{repo.repo_type}' "
-                    f"for connector field '{field.id}'"
-                ),
-                class_name=class_name,
-                method_name=method_name,
-            )
+            if option.id
+        }
 
         invalid_ids = [
             item_id for item_id in normalized_ids if item_id not in available_ids
         ]
         if invalid_ids:
+            repo = field.connected_repo
+            repo_label = None
+            if repo is not None:
+                repo_label = repo.name or repo.id
             raise ValidationError(
                 message=(
                     f"Connector field '{field.id}' contains ids not found in connected repo "
-                    f"'{repo.name or repo.id}': {invalid_ids}"
+                    f"'{repo_label}': {invalid_ids}"
                 ),
                 class_name=class_name,
                 method_name=method_name,
@@ -425,29 +400,6 @@ class ConnectorService:
             item_ids=normalized_ids,
         )
 
-    def _updateCardConnectorIds(
-        self,
-        card_service: "CardService",
-        card_id: str,
-        field_id: str,
-        item_ids: List[str],
-    ) -> Dict[str, Any]:
-        """
-        Apply a validated connector id list to a card field.
-
-        :param card_service: CardService = Card service used for updates
-        :param card_id: str = Card identifier
-        :param field_id: str = Connector field identifier
-        :param item_ids: list[str] = Already validated connected ids
-
-        :return: dict = Raw update response keyed by updated field
-        """
-        return card_service.updateFields(
-            card_id=card_id,
-            fields={field_id: list(item_ids)},
-            config=CardUpdateConfig(validate_field_existence=False),
-        )
-
     def addCardValue(
         self,
         card_id: str,
@@ -469,6 +421,7 @@ class ConnectorService:
             normalized = str(item_id).strip()
             if normalized and normalized not in merged_ids:
                 merged_ids.append(normalized)
+
         class_name, method_name = getExceptionContext(self)
         card_service = self._requireCardService(class_name, method_name)
         phase_field = card_service.getCardPipeField(card_id, field_id)
@@ -478,6 +431,7 @@ class ConnectorService:
                 class_name=class_name,
                 method_name=method_name,
             )
+
         normalized_ids = self.validateConnectorSelection(phase_field, merged_ids)
         return self._updateCardConnectorIds(
             card_service=card_service,
@@ -549,13 +503,12 @@ class ConnectorService:
         self._validatePipeId(pipe_id, class_name, method_name)
         self._validateFieldId(field_id, class_name, method_name)
 
-        matches = [
+        return [
             spec
             for spec in self.listFields(pipe_id)
             if spec.field_id == field_id
             and (phase_id is None or spec.phase_id == phase_id)
         ]
-        return matches
 
     def _raiseAmbiguousConnectorField(
         self,
@@ -565,10 +518,6 @@ class ConnectorService:
     ) -> None:
         """
         Raise a validation error for an ambiguous connector selection.
-
-        :param pipe_id: str = Pipe identifier
-        :param field_id: str = Connector field identifier
-        :param matches: list[ConnectorFieldSpec] = Candidate specs
         """
         origins = [
             (
@@ -587,20 +536,14 @@ class ConnectorService:
             method_name="_raiseAmbiguousConnectorField",
         )
 
+    @staticmethod
     def _requireConnectedRepo(
-        self,
         spec: ConnectorFieldSpec,
         class_name: str,
         method_name: str,
-    ) -> ConnectedRepoRef:
+    ) -> None:
         """
-        Retrieve connected repo metadata from a connector spec and fail if absent.
-
-        :param spec: ConnectorFieldSpec = Connector field specification
-        :param class_name: str = Calling class name
-        :param method_name: str = Calling method name
-
-        :return: ConnectedRepoRef = Connected repo metadata
+        Validate that connected repo metadata exists on a connector field.
         """
         repo = spec.connected_repo
         if repo is None or not repo.id:
@@ -611,7 +554,6 @@ class ConnectorService:
                 class_name=class_name,
                 method_name=method_name,
             )
-        return repo
 
     @staticmethod
     def _normalizeConnectorIds(
@@ -622,13 +564,6 @@ class ConnectorService:
     ) -> List[str]:
         """
         Normalize connector payload into a list of connected item ids.
-
-        :param field_id: str = Connector field identifier
-        :param value: Any = Proposed connector payload
-        :param class_name: str = Calling class name
-        :param method_name: str = Calling method name
-
-        :return: list[str] = Normalized ids
         """
         if not isinstance(value, list):
             raise ValidationError(
@@ -662,254 +597,9 @@ class ConnectorService:
 
         return normalized_ids
 
-    def _listPipeOptions(
-        self,
-        repo: ConnectedRepoRef,
-        search: Optional[str],
-        limit: Optional[int],
-    ) -> List[ConnectorOption]:
-        """
-        List connector options backed by a connected pipe.
-
-        :param repo: ConnectedRepoRef = Connected pipe metadata
-        :param search: str | None = Optional title filter
-        :param limit: int | None = Maximum number of results
-
-        :return: list[ConnectorOption] = Pipe-backed connector options
-        """
-        repo_id = str(repo.id)
-        normalized_search = str(search or "").strip().casefold()
-        options: List[ConnectorOption] = []
-        after: Optional[str] = None
-
-        while True:
-            query = self._buildAllCardsConnectorQuery(pipe_id=repo_id, after=after)
-            response = self._client.sendRequest(query, timeout=60)
-            all_cards = self._extractAllCardsPayload(response)
-
-            for edge in all_cards.get("edges", []):
-                if not isinstance(edge, dict):
-                    continue
-                node = edge.get("node")
-                if not isinstance(node, dict):
-                    continue
-
-                option = ConnectorOption.fromPipeCardNode(
-                    node,
-                    repo_id=repo_id,
-                    repo_name=repo.name,
-                )
-                if (
-                    normalized_search
-                    and normalized_search not in str(option.title or "").casefold()
-                ):
-                    continue
-                options.append(option)
-
-                if limit is not None and len(options) >= limit:
-                    return options[:limit]
-
-            page_info = all_cards.get("pageInfo") or {}
-            has_next_page = bool(page_info.get("hasNextPage"))
-            after = page_info.get("endCursor")
-            if not has_next_page or not after:
-                break
-
-        return options[:limit] if limit is not None else options
-
-    def _listPipeOptionsForResolution(
-        self,
-        repo: ConnectedRepoRef,
-        desired_title: str,
-    ) -> List[ConnectorOption]:
-        """
-        List pipe-backed connector options until exact title resolution is possible.
-
-        :param repo: ConnectedRepoRef = Connected pipe metadata
-        :param desired_title: str = Desired exact title
-
-        :return: list[ConnectorOption] = Candidate options inspected for resolution
-        """
-        normalized_title = desired_title.strip().casefold()
-        repo_id = str(repo.id)
-        options: List[ConnectorOption] = []
-        after: Optional[str] = None
-        exact_match_count = 0
-
-        while True:
-            query = self._buildAllCardsConnectorQuery(pipe_id=repo_id, after=after)
-            response = self._client.sendRequest(query, timeout=60)
-            all_cards = self._extractAllCardsPayload(response)
-
-            for edge in all_cards.get("edges", []):
-                if not isinstance(edge, dict):
-                    continue
-                node = edge.get("node")
-                if not isinstance(node, dict):
-                    continue
-
-                option = ConnectorOption.fromPipeCardNode(
-                    node,
-                    repo_id=repo_id,
-                    repo_name=repo.name,
-                )
-                options.append(option)
-                if str(option.title or "").strip().casefold() == normalized_title:
-                    exact_match_count += 1
-                    if exact_match_count > 1:
-                        return options
-
-            page_info = all_cards.get("pageInfo") or {}
-            has_next_page = bool(page_info.get("hasNextPage"))
-            after = page_info.get("endCursor")
-            if not has_next_page or not after:
-                break
-
-        return options
-
-    def _listTableOptions(
-        self,
-        repo: ConnectedRepoRef,
-        search: Optional[str],
-        limit: Optional[int],
-    ) -> List[ConnectorOption]:
-        """
-        List connector options backed by a connected table.
-
-        :param repo: ConnectedRepoRef = Connected table metadata
-        :param search: str | None = Optional title filter
-        :param limit: int | None = Maximum number of results
-
-        :return: list[ConnectorOption] = Table-backed connector options
-        """
-        repo_id = str(repo.id)
-        normalized_search = str(search or "").strip().casefold()
-        query = self._buildTableRecordsConnectorQuery(table_id=repo_id)
-        response = self._client.sendRequest(query, timeout=60)
-        records = self._extractTableRecordsPayload(response)
-
-        options: List[ConnectorOption] = []
-        for edge in records.get("edges", []):
-            if not isinstance(edge, dict):
-                continue
-            node = edge.get("node")
-            if not isinstance(node, dict):
-                continue
-
-            option = ConnectorOption.fromTableRecordNode(
-                node,
-                repo_id=repo_id,
-                repo_name=repo.name,
-            )
-            if (
-                normalized_search
-                and normalized_search not in str(option.title or "").casefold()
-            ):
-                continue
-            options.append(option)
-            if limit is not None and len(options) >= limit:
-                return options[:limit]
-
-        return options[:limit] if limit is not None else options
-
-    @staticmethod
-    def _buildAllCardsConnectorQuery(
-        pipe_id: str,
-        after: Optional[str] = None,
-    ) -> str:
-        """
-        Build a paginated card listing query for pipe-backed connectors.
-
-        :param pipe_id: str = Connected pipe identifier
-        :param after: str | None = Optional cursor
-
-        :return: str = GraphQL query
-        """
-        after_param = f', after: "{after}"' if after else ""
-        return f"""
-        {{
-          allCards(pipeId: {pipe_id}{after_param}) {{
-            pageInfo {{
-              hasNextPage
-              endCursor
-            }}
-            edges {{
-              node {{
-                id
-                title
-                current_phase {{
-                  id
-                  name
-                }}
-              }}
-            }}
-          }}
-        }}
-        """
-
-    @staticmethod
-    def _buildTableRecordsConnectorQuery(table_id: str) -> str:
-        """
-        Build a table records listing query for table-backed connectors.
-
-        :param table_id: str = Connected table identifier
-
-        :return: str = GraphQL query
-        """
-        return f"""
-        {{
-          table_records(table_id: "{table_id}") {{
-            edges {{
-              node {{
-                id
-                title
-                path
-                url
-                uuid
-                record_fields {{
-                  indexName
-                  name
-                  value
-                }}
-              }}
-            }}
-          }}
-        }}
-        """
-
-    def _extractAllCardsPayload(self, response: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Extract and validate the ``allCards`` payload from a GraphQL response.
-
-        :param response: dict = Raw GraphQL response
-
-        :return: dict = ``allCards`` payload
-        """
-        data = response.get("data")
-        if not isinstance(data, dict):
-            raise UnexpectedResponseError(
-                message="'data' field missing or invalid",
-                class_name=self.__class__.__name__,
-                method_name="_extractAllCardsPayload",
-            )
-
-        payload = data.get("allCards")
-        if not isinstance(payload, dict):
-            raise UnexpectedResponseError(
-                message="'allCards' field missing or invalid",
-                class_name=self.__class__.__name__,
-                method_name="_extractAllCardsPayload",
-            )
-        return payload
-
     def _requireCardService(self, class_name: str, method_name: str) -> "CardService":
         """
         Retrieve the injected card service required by semantic card helpers.
-
-        :param class_name: str = Calling class name
-        :param method_name: str = Calling method name
-
-        :return: CardService = Injected card service
         """
         if self._card_service is None:
             raise RequestError(
@@ -919,30 +609,21 @@ class ConnectorService:
             )
         return self._card_service
 
-    def _extractTableRecordsPayload(self, response: Dict[str, Any]) -> Dict[str, Any]:
+    def _updateCardConnectorIds(
+        self,
+        card_service: "CardService",
+        card_id: str,
+        field_id: str,
+        item_ids: List[str],
+    ) -> Dict[str, Any]:
         """
-        Extract and validate the ``table_records`` payload from a GraphQL response.
-
-        :param response: dict = Raw GraphQL response
-
-        :return: dict = ``table_records`` payload
+        Apply a validated connector id list to a card field.
         """
-        data = response.get("data")
-        if not isinstance(data, dict):
-            raise UnexpectedResponseError(
-                message="'data' field missing or invalid",
-                class_name=self.__class__.__name__,
-                method_name="_extractTableRecordsPayload",
-            )
-
-        payload = data.get("table_records")
-        if not isinstance(payload, dict):
-            raise UnexpectedResponseError(
-                message="'table_records' field missing or invalid",
-                class_name=self.__class__.__name__,
-                method_name="_extractTableRecordsPayload",
-            )
-        return payload
+        return card_service.updateFields(
+            card_id=card_id,
+            fields={field_id: list(item_ids)},
+            config=CardUpdateConfig(validate_field_existence=False),
+        )
 
     @staticmethod
     def _validatePipeId(pipe_id: str, class_name: str, method_name: str) -> None:

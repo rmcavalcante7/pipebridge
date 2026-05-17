@@ -66,6 +66,7 @@ class PipeQueries:
                 required
                 description
                 options
+                settings
                 help_text: help
                 can_connect_existing: canConnectExisting
                 can_connect_multiples: canConnectMultiples
@@ -74,10 +75,13 @@ class PipeQueries:
                     __typename
                     ... on PublicPipe {
                         id
+                        uuid
                         name
                     }
                     ... on PublicTable {
                         id
+                        internal_id
+                        uuid
                         name
                     }
                 }
@@ -95,6 +99,7 @@ class PipeQueries:
                     required
                     description
                     options
+                    settings
                     help_text: help
                     can_connect_existing: canConnectExisting
                     can_connect_multiples: canConnectMultiples
@@ -103,10 +108,13 @@ class PipeQueries:
                         __typename
                         ... on PublicPipe {
                             id
+                            uuid
                             name
                         }
                         ... on PublicTable {
                             id
+                            internal_id
+                            uuid
                             name
                         }
                     }

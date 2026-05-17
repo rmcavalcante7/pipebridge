@@ -41,6 +41,7 @@ def build_table_connector_field(
         label="Projetos",
         type="connector",
         required=required,
+        uuid="uuid-proj",
         connected_repo=ConnectedRepoRef(
             repo_type="Table",
             id="6CzIX6F_",
@@ -61,6 +62,7 @@ def build_pipe_connector_field(
         label="Pesquise o nome Automacao",
         type="connector",
         required=required,
+        uuid="uuid-auto",
         connected_repo=ConnectedRepoRef(
             repo_type="Pipe",
             id="307073107",
@@ -118,14 +120,15 @@ def test_create_card_safely_validates_pipe_connector_ids_before_create() -> None
         [
             {
                 "data": {
-                    "allCards": {
+                    "cards": {
                         "pageInfo": {"hasNextPage": False, "endCursor": None},
                         "edges": [
                             {
                                 "node": {
-                                    "id": "133",
+                                    "uuid": "gid://pipefy/Card/uuid-133",
+                                    "internalId": "133",
                                     "title": "Bot de Cobranca",
-                                    "current_phase": {
+                                    "currentPhase": {
                                         "id": "phase-1",
                                         "name": "Backlog",
                                     },
@@ -154,7 +157,7 @@ def test_create_card_safely_validates_pipe_connector_ids_before_create() -> None
         "data": {"createCard": {"card": {"id": "2", "title": "Connector"}}}
     }
     assert len(client.queries) == 2
-    assert "allCards(" in client.queries[0]
+    assert "cards(" in client.queries[0]
     assert "createCard" in client.queries[1]
 
 

@@ -14,6 +14,14 @@ The format follows this convention:
 
 - No pending entries.
 
+## [0.3.1] - 2026-05-17
+
+- `fix:` aligned connector option discovery with the contextual `cards(... throughConnectors ...)` resolver used by the Pipefy UI
+- `fix:` resolved dynamic connector `repoId` from connected repo metadata, including `internal_id` for table-backed connectors
+- `feat:` enriched connected repo metadata with `internal_id`, `uuid`, and an explicit discovery id helper
+- `docs:` clarified contextual connector discovery semantics in the README, PyPI README, and use-case guidance
+- `test:` added and updated unit coverage for contextual connector discovery and dynamic repo id resolution
+
 ## [0.3.0] - 2026-05-15
 
 - `feat:` added first-class connector discovery through `api.connectors`, including field inspection, option listing, title resolution, and semantic card value helpers
